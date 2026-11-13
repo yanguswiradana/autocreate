@@ -113,3 +113,14 @@ autocreate/
 ├── feeds.config.json     # Daftar RSS feed untuk Auto-Topic Finder
 └── topics.example.json   # Contoh daftar topik untuk batch mode
 ```
+
+---
+
+## Lisensi & Atribusi
+
+Proyek ini menggunakan **[Remotion](https://github.com/remotion-dev/remotion)** untuk rendering gambar dan video secara programatik.
+
+- Penggunaan Remotion tunduk pada **[Remotion License](https://www.remotion.dev/license)**:
+  - **Gratis** untuk individu, organisasi non-profit/edukasi, serta perusahaan dengan total anggota maksimal **3 orang**.
+  - Perusahaan profit dengan **4 orang atau lebih** wajib memiliki **Remotion Company License**.
+

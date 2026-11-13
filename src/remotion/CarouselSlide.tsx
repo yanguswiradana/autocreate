@@ -1,7 +1,7 @@
 import React from "react";
 import { AbsoluteFill, Img } from "remotion";
 import { getThemePreset } from "../presets/themes";
-import { PresetId, Scene } from "../types/blueprint";
+import { AspectRatio, PresetId, Scene } from "../types/blueprint";
 
 export interface CarouselSlideProps {
   preset: PresetId;
@@ -9,6 +9,7 @@ export interface CarouselSlideProps {
   hookTitle: string;
   totalSlides: number;
   scene: Scene;
+  aspectRatio?: AspectRatio;
   bgDataUri?: string;
   logoDataUri?: string;
   coverBadge?: string;
@@ -22,6 +23,7 @@ export const CarouselSlide: React.FC<CarouselSlideProps> = ({
   brandTag,
   totalSlides,
   scene,
+  aspectRatio = "4:5",
   bgDataUri,
   logoDataUri,
   coverBadge = "INSIGHT BRIEF",
@@ -32,6 +34,7 @@ export const CarouselSlide: React.FC<CarouselSlideProps> = ({
   const theme = getThemePreset(preset);
   const isCover = scene.role === "cover";
   const isCta = scene.role === "cta";
+  const isSquare = aspectRatio === "1:1";
 
   return (
     <AbsoluteFill
@@ -77,7 +80,7 @@ export const CarouselSlide: React.FC<CarouselSlideProps> = ({
           flexDirection: "column",
           justifyContent: "space-between",
           height: "100%",
-          padding: "76px 80px",
+          padding: isSquare ? "56px 72px" : "76px 80px",
           boxSizing: "border-box",
         }}
       >
@@ -182,7 +185,7 @@ export const CarouselSlide: React.FC<CarouselSlideProps> = ({
             style={{
               margin: 0,
               fontFamily: theme.fontDisplay,
-              fontSize: isCover ? 76 : 62,
+              fontSize: isCover ? (isSquare ? 64 : 76) : isSquare ? 54 : 62,
               lineHeight: 1.14,
               fontWeight: 700,
               color: theme.textPrimary,

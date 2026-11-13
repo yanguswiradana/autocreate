@@ -18,6 +18,7 @@ export interface ShortVideoProps {
   sceneAudioDataUris?: Record<number, string>;
   sceneWordTimings?: Record<number, WordTiming[]>;
   bgmDataUri?: string;
+  bgmVolume?: number;
   logoDataUri?: string;
 }
 
@@ -288,6 +289,7 @@ export const ShortVideo: React.FC<ShortVideoProps> = ({
   sceneAudioDataUris = {},
   sceneWordTimings = {},
   bgmDataUri,
+  bgmVolume = 0.14,
   logoDataUri,
 }) => {
   const { fps, durationInFrames } = useVideoConfig();
@@ -306,7 +308,9 @@ export const ShortVideo: React.FC<ShortVideoProps> = ({
 
   return (
     <AbsoluteFill style={{ backgroundColor: theme.bgPrimary }}>
-      {bgmDataUri ? <Audio src={bgmDataUri} loop volume={0.14} /> : null}
+      {bgmDataUri && bgmVolume > 0 ? (
+        <Audio src={bgmDataUri} loop volume={bgmVolume} />
+      ) : null}
 
       {segments.map(({ scene, from, duration }) => (
         <Sequence key={scene.index} from={from} durationInFrames={duration}>

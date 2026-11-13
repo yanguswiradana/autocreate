@@ -2,6 +2,10 @@ import "dotenv/config";
 import { runContentJob } from "../services/pipeline";
 import { VisualProvider } from "../services/visualFactory";
 import {
+  AspectRatio,
+  AspectRatioSchema,
+  Language,
+  LanguageSchema,
   OutputType,
   OutputTypeSchema,
   PresetId,
@@ -14,11 +18,14 @@ interface CliArgs {
   outputs: OutputType[];
   brandTag?: string;
   slides: number;
+  language: Language;
+  aspectRatio: AspectRatio;
   mock: boolean;
   visualProvider?: VisualProvider;
   voice?: string;
   noTts: boolean;
   bgm?: string;
+  bgmVolume?: number;
 }
 
 function parseArgs(argv: string[]): CliArgs {
@@ -58,6 +65,12 @@ function parseArgs(argv: string[]): CliArgs {
     outputs,
     brandTag: typeof args.brand === "string" ? args.brand : undefined,
     slides: typeof args.slides === "string" ? Number(args.slides) : 5,
+    language: LanguageSchema.parse(
+      typeof args.lang === "string" ? args.lang : "id"
+    ),
+    aspectRatio: AspectRatioSchema.parse(
+      typeof args.ratio === "string" ? args.ratio : "4:5"
+    ),
     mock: Boolean(args.mock),
     visualProvider:
       typeof args.visual === "string"
@@ -66,6 +79,10 @@ function parseArgs(argv: string[]): CliArgs {
     voice: typeof args.voice === "string" ? args.voice : undefined,
     noTts: Boolean(args["no-tts"]),
     bgm: typeof args.bgm === "string" ? args.bgm : undefined,
+    bgmVolume:
+      typeof args["bgm-volume"] === "string"
+        ? Number(args["bgm-volume"])
+        : undefined,
   };
 }
 

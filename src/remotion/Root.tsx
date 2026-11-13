@@ -11,6 +11,8 @@ const DEFAULT_BLUEPRINT: ContentBlueprint = {
   subtitle: "Ringkasan tajam yang jarang disadari.",
   brandTag: "@autocreate",
   preset: "noir_editorial",
+  language: "id",
+  aspectRatio: "4:5",
   scenes: [
     {
       index: 1,
@@ -63,8 +65,16 @@ export const RemotionRoot: React.FC = () => {
             hookTitle: DEFAULT_BLUEPRINT.hookTitle,
             totalSlides: DEFAULT_BLUEPRINT.scenes.length,
             scene: DEFAULT_BLUEPRINT.scenes[0],
+            aspectRatio: "4:5",
           } satisfies CarouselSlideProps
         }
+        calculateMetadata={({ props }) => {
+          const typedProps = props as unknown as CarouselSlideProps;
+          return {
+            width: 1080,
+            height: typedProps.aspectRatio === "1:1" ? 1080 : 1350,
+          };
+        }}
       />
 
       <Composition
@@ -79,6 +89,13 @@ export const RemotionRoot: React.FC = () => {
             blueprint: DEFAULT_BLUEPRINT,
           } satisfies PosterCardProps
         }
+        calculateMetadata={({ props }) => {
+          const typedProps = props as unknown as PosterCardProps;
+          return {
+            width: 1080,
+            height: typedProps.blueprint.aspectRatio === "1:1" ? 1080 : 1350,
+          };
+        }}
       />
 
       <Composition

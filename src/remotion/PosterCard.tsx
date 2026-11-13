@@ -16,6 +16,7 @@ export const PosterCard: React.FC<PosterCardProps> = ({
 }) => {
   const theme = getThemePreset(blueprint.preset);
   const contentScenes = blueprint.scenes.filter((s) => s.role === "content");
+  const isSquare = blueprint.aspectRatio === "1:1";
 
   return (
     <AbsoluteFill
@@ -59,7 +60,7 @@ export const PosterCard: React.FC<PosterCardProps> = ({
           flexDirection: "column",
           justifyContent: "space-between",
           height: "100%",
-          padding: "68px 72px",
+          padding: isSquare ? "48px 64px" : "68px 72px",
           boxSizing: "border-box",
         }}
       >
@@ -108,8 +109,8 @@ export const PosterCard: React.FC<PosterCardProps> = ({
           </h1>
         </div>
 
-        <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
-          {contentScenes.slice(0, 4).map((scene, idx) => (
+        <div style={{ display: "flex", flexDirection: "column", gap: isSquare ? 12 : 20 }}>
+          {contentScenes.slice(0, isSquare ? 3 : 4).map((scene, idx) => (
             <div
               key={scene.index}
               style={{

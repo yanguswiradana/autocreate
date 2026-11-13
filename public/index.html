@@ -875,6 +875,37 @@
           </div>
         </div>
 
+        <div class="field row-2" style="grid-template-columns: 1fr 1fr;">
+          <div>
+            <div class="field-label"><span>Bahasa Konten</span></div>
+            <div class="custom-select" data-target="language">
+              <input type="hidden" id="language" value="id" />
+              <button type="button" class="select-trigger">
+                <span class="select-label">Indonesia (ID)</span>
+                <svg class="select-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
+              </button>
+              <div class="select-menu">
+                <button type="button" class="select-option selected" data-value="id"><span>Indonesia (ID)</span><svg class="select-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg></button>
+                <button type="button" class="select-option" data-value="en"><span>English (EN)</span><svg class="select-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg></button>
+              </div>
+            </div>
+          </div>
+          <div>
+            <div class="field-label"><span>Rasio Gambar</span></div>
+            <div class="custom-select" data-target="aspectRatio">
+              <input type="hidden" id="aspectRatio" value="4:5" />
+              <button type="button" class="select-trigger">
+                <span class="select-label">4:5 (Portrait)</span>
+                <svg class="select-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
+              </button>
+              <div class="select-menu">
+                <button type="button" class="select-option selected" data-value="4:5"><span>4:5 (Portrait)</span><svg class="select-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg></button>
+                <button type="button" class="select-option" data-value="1:1"><span>1:1 (Square)</span><svg class="select-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg></button>
+              </div>
+            </div>
+          </div>
+        </div>
+
         <div class="field">
           <div class="field-label"><span>Visual Provider</span></div>
           <div class="custom-select" data-target="visual">
@@ -912,6 +943,29 @@
           <div>
             <div class="field-label"><span>Slide</span></div>
             <input id="slides" type="number" min="3" max="10" value="5" />
+          </div>
+        </div>
+
+        <div class="field row-2" style="grid-template-columns: 1fr 120px;">
+          <div>
+            <div class="field-label"><span>Musik Latar (BGM)</span></div>
+            <div class="custom-select" id="bgmSelect" data-target="bgm">
+              <input type="hidden" id="bgm" value="ambient_dark" />
+              <button type="button" class="select-trigger">
+                <span class="select-label">Ambient Dark</span>
+                <svg class="select-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
+              </button>
+              <div class="select-menu">
+                <button type="button" class="select-option selected" data-value="ambient_dark"><span>Ambient Dark</span><svg class="select-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg></button>
+                <button type="button" class="select-option" data-value="lofi_calm"><span>Lo-Fi Calm</span><svg class="select-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg></button>
+                <button type="button" class="select-option" data-value="cinematic_pulse"><span>Cinematic Pulse</span><svg class="select-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg></button>
+                <button type="button" class="select-option" data-value="none"><span>Tanpa Musik</span><svg class="select-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg></button>
+              </div>
+            </div>
+          </div>
+          <div>
+            <div class="field-label"><span>Volume</span><span class="field-hint" id="bgmVolLabel">14%</span></div>
+            <input id="bgmVolume" type="range" min="0" max="40" value="14" style="accent-color:var(--accent);padding:8px 0;" oninput="document.getElementById('bgmVolLabel').textContent=this.value+'%'" />
           </div>
         </div>
 
@@ -985,6 +1039,7 @@
     let lightboxImages = [];
     let lightboxIndex = 0;
     let timerInterval = null;
+    let cacheBust = Date.now();
 
     // Preset cards interaction
     document.querySelectorAll('.preset-card').forEach(card => {
@@ -1074,8 +1129,15 @@
     function syncVideoControl() {
       const videoChecked = document.querySelector('input[name="outputs"][value="video"]').checked;
       const voiceSelect = document.getElementById('voiceSelect');
+      const bgmSelect = document.getElementById('bgmSelect');
+      const bgmVol = document.getElementById('bgmVolume');
       voiceSelect.dataset.disabled = videoChecked ? 'false' : 'true';
-      if (!videoChecked) voiceSelect.classList.remove('open');
+      bgmSelect.dataset.disabled = videoChecked ? 'false' : 'true';
+      bgmVol.disabled = !videoChecked;
+      if (!videoChecked) {
+        voiceSelect.classList.remove('open');
+        bgmSelect.classList.remove('open');
+      }
     }
     document.querySelectorAll('input[name="outputs"]').forEach(cb => {
       cb.addEventListener('change', syncVideoControl);
@@ -1176,9 +1238,9 @@
 
       const { title } = formatFolderInfo(job);
       lightboxImages = [];
-      const slideUrls = job.slides.map(s => `/outputs/${encodeURIComponent(job.name)}/carousel/${encodeURIComponent(s)}`);
-      const posterUrl = job.hasPoster ? `/outputs/${encodeURIComponent(job.name)}/poster.png` : null;
-      const rawUrls = (job.rawImages || []).map(r => `/outputs/${encodeURIComponent(job.name)}/raw_images/${encodeURIComponent(r)}`);
+      const slideUrls = job.slides.map(s => `/outputs/${encodeURIComponent(job.name)}/carousel/${encodeURIComponent(s)}?t=${cacheBust}`);
+      const posterUrl = job.hasPoster ? `/outputs/${encodeURIComponent(job.name)}/poster.png?t=${cacheBust}` : null;
+      const rawUrls = (job.rawImages || []).map(r => `/outputs/${encodeURIComponent(job.name)}/raw_images/${encodeURIComponent(r)}?t=${cacheBust}`);
 
       lightboxImages = [...slideUrls, ...(posterUrl ? [posterUrl] : []), ...rawUrls];
 
@@ -1189,13 +1251,14 @@
         ...(job.hasPoster ? [{ id: 'poster', label: 'Poster' }] : []),
         ...(rawUrls.length ? [{ id: 'raw', label: `Raw (${rawUrls.length})` }] : []),
         ...(job.caption ? [{ id: 'caption', label: 'Caption' }] : []),
+        ...(job.blueprint ? [{ id: 'edit', label: 'Edit Blueprint' }] : []),
       ];
       if (!tabs.some(t => t.id === activeTab)) activeTab = 'all';
 
       let bodyHtml = '';
 
       if ((activeTab === 'all' || activeTab === 'video') && job.hasVideo) {
-        const vUrl = `/outputs/${encodeURIComponent(job.name)}/video.mp4`;
+        const vUrl = `/outputs/${encodeURIComponent(job.name)}/video.mp4?t=${cacheBust}`;
         bodyHtml += `
           <div style="margin-bottom:22px;">
             <div class="field-label"><span>Video Pendek (9:16)</span><a class="btn-ghost" href="${vUrl}" download>Download MP4</a></div>
@@ -1255,6 +1318,55 @@
           </div>`;
       }
 
+      if (activeTab === 'edit' && job.blueprint) {
+        const bp = job.blueprint;
+        bodyHtml += `
+          <form id="editBlueprintForm" style="display:flex;flex-direction:column;gap:14px;">
+            <div class="row-2" style="grid-template-columns:1fr 220px;">
+              <div>
+                <div class="field-label"><span>Judul Hook Utama</span></div>
+                <input type="text" id="editHookTitle" required />
+              </div>
+              <div>
+                <div class="field-label"><span>Preset Visual</span></div>
+                <select id="editPreset" style="background:var(--surface);border:1px solid var(--border);color:var(--text);border-radius:9px;padding:10px 12px;font-size:13px;color-scheme:dark;">
+                  <option value="noir_editorial">Noir Editorial</option>
+                  <option value="midnight_tech">Midnight Tech</option>
+                  <option value="monochrome_luxury">Monochrome Luxury</option>
+                </select>
+              </div>
+            </div>
+
+            <div style="display:flex;flex-direction:column;gap:10px;">
+              ${bp.scenes.map((s, idx) => `
+                <div class="caption-card" style="display:flex;flex-direction:column;gap:8px;">
+                  <div class="field-label" style="margin:0;">
+                    <span style="color:var(--accent);font-weight:600;">Scene ${s.index} (${s.role.toUpperCase()})</span>
+                  </div>
+                  <input type="text" class="edit-slide-title" data-idx="${idx}" placeholder="Judul Slide" required />
+                  <textarea class="edit-slide-body" data-idx="${idx}" rows="2" placeholder="Isi Slide" required style="min-height:56px;"></textarea>
+                  <textarea class="edit-slide-narration" data-idx="${idx}" rows="2" placeholder="Teks Narasi Voiceover" required style="min-height:56px;"></textarea>
+                </div>
+              `).join('')}
+            </div>
+
+            <div>
+              <div class="field-label"><span>Caption Sosmed</span></div>
+              <textarea id="editCaption" rows="3" required></textarea>
+            </div>
+
+            <div class="output-grid" style="grid-template-columns:repeat(3,1fr);">
+              <label class="output-chip"><input type="checkbox" name="reOutputs" value="carousel" checked /> Re-render Carousel</label>
+              <label class="output-chip"><input type="checkbox" name="reOutputs" value="video" ${job.hasVideo ? 'checked' : ''} /> Re-render Video</label>
+              <label class="output-chip"><input type="checkbox" name="reOutputs" value="poster" ${job.hasPoster ? 'checked' : ''} /> Re-render Poster</label>
+            </div>
+
+            <button class="btn-primary" id="rerenderBtn" type="submit" style="margin-top:4px;">
+              <span>Simpan &amp; Re-Render (Tanpa Token AI)</span>
+            </button>
+          </form>`;
+      }
+
       panel.innerHTML = `
         <div class="preview-header">
           <h3 id="previewTitle"></h3>
@@ -1272,6 +1384,74 @@
       });
       const capEl = document.getElementById('captionEl');
       if (capEl) capEl.textContent = job.caption;
+
+      const editForm = document.getElementById('editBlueprintForm');
+      if (editForm && job.blueprint) {
+        const bp = job.blueprint;
+        document.getElementById('editHookTitle').value = bp.hookTitle || '';
+        document.getElementById('editPreset').value = bp.preset || 'noir_editorial';
+        document.getElementById('editCaption').value = bp.caption || '';
+        bp.scenes.forEach((s, idx) => {
+          editForm.querySelector(`.edit-slide-title[data-idx="${idx}"]`).value = s.slideTitle || '';
+          editForm.querySelector(`.edit-slide-body[data-idx="${idx}"]`).value = s.slideBody || '';
+          editForm.querySelector(`.edit-slide-narration[data-idx="${idx}"]`).value = s.narrationText || '';
+        });
+
+        editForm.addEventListener('submit', async (e) => {
+          e.preventDefault();
+          const outputs = Array.from(editForm.querySelectorAll('input[name="reOutputs"]:checked')).map(el => el.value);
+          if (outputs.length === 0) {
+            showToast('Pilih minimal 1 format untuk di-render ulang.', 'err');
+            return;
+          }
+          const btn = document.getElementById('rerenderBtn');
+          btn.disabled = true;
+          let sec = 0;
+          btn.innerHTML = '<span class="spinner"></span><span>Re-rendering (00:00)...</span>';
+          const tmr = setInterval(() => {
+            sec++;
+            const mm = String(Math.floor(sec / 60)).padStart(2, '0');
+            const ss = String(sec % 60).padStart(2, '0');
+            btn.innerHTML = `<span class="spinner"></span><span>Re-rendering (${mm}:${ss})...</span>`;
+          }, 1000);
+
+          const updatedBp = structuredClone(bp);
+          updatedBp.hookTitle = document.getElementById('editHookTitle').value.trim();
+          updatedBp.preset = document.getElementById('editPreset').value;
+          updatedBp.caption = document.getElementById('editCaption').value.trim();
+          updatedBp.scenes = updatedBp.scenes.map((s, idx) => ({
+            ...s,
+            slideTitle: editForm.querySelector(`.edit-slide-title[data-idx="${idx}"]`).value.trim(),
+            slideBody: editForm.querySelector(`.edit-slide-body[data-idx="${idx}"]`).value.trim(),
+            narrationText: editForm.querySelector(`.edit-slide-narration[data-idx="${idx}"]`).value.trim(),
+          }));
+
+          try {
+            const res = await fetch('/api/rerender', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                folderName: job.name,
+                blueprint: updatedBp,
+                outputs,
+                voice: document.getElementById('voice').value,
+              }),
+            });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.error || 'Gagal re-render');
+            cacheBust = Date.now();
+            activeTab = 'all';
+            showToast(`Re-render selesai dalam ${sec} detik!`, 'ok');
+            await loadJobs(job.name);
+          } catch (err) {
+            showToast('Error re-render: ' + (err.message || err), 'err');
+          } finally {
+            clearInterval(tmr);
+            btn.disabled = false;
+            btn.innerHTML = '<span>Simpan &amp; Re-Render (Tanpa Token AI)</span>';
+          }
+        });
+      }
     }
 
     let pendingDeleteName = null;
@@ -1388,7 +1568,11 @@
             outputs,
             visualProvider: document.getElementById('visual').value,
             voice: document.getElementById('voice').value,
+            bgm: document.getElementById('bgm').value,
+            bgmVolume: Number(document.getElementById('bgmVolume').value) / 100,
             slides: Number(document.getElementById('slides').value) || 5,
+            language: document.getElementById('language').value,
+            aspectRatio: document.getElementById('aspectRatio').value,
             mock: document.getElementById('mock').checked,
           }),
         });

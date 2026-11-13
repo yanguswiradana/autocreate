@@ -6,7 +6,14 @@ import { loadBrandConfig } from "../config/brand";
 import { generateBlueprint } from "./gemini";
 import { generateVoiceovers, WordTiming } from "./tts";
 import { generateRawVisuals, VisualProvider } from "./visualFactory";
-import { OutputType, PresetId } from "../types/blueprint";
+import {
+  AspectRatio,
+  ContentBlueprint,
+  Language,
+  OutputType,
+  PresetId,
+} from "../types/blueprint";
+import { OutputManifest } from "../types/manifest";
 
 export interface ContentJobOptions {
   topic: string;
@@ -14,11 +21,14 @@ export interface ContentJobOptions {
   outputs: OutputType[];
   brandTag?: string;
   slides?: number;
+  language?: Language;
+  aspectRatio?: AspectRatio;
   mock?: boolean;
   visualProvider?: VisualProvider;
   voice?: string;
   noTts?: boolean;
   bgm?: string;
+  bgmVolume?: number;
   /** Optional pre-bundled Remotion serveUrl to speed up batch runs */
   serveUrl?: string;
 }
@@ -42,20 +52,15 @@ export async function runContentJob(
     outputs,
     brandTag = brandConfig.brandTag,
     slides = 5,
+    language = "id",
+    aspectRatio = "4:5",
     mock = false,
     visualProvider,
     voice,
     noTts = false,
     bgm,
+    bgmVolume,
   } = options;
-
-  let logoDataUri: string | undefined;
-  if (brandConfig.logoPath) {
-    const resolvedLogo = path.resolve(process.cwd(), brandConfig.logoPath);
-    if (fs.existsSync(resolvedLogo)) {
-      logoDataUri = fileToDataUri(resolvedLogo);
-    }
-  }
 
   const timestamp = new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19);
   const jobDir = path.resolve(
@@ -65,13 +70,15 @@ export async function runContentJob(
   );
 
   console.log(
-    `\n[1/4] Membuat Content Blueprint (${mock ? "MOCK" : "GEMINI/FALLBACK"})...`
+    `\n[1/4] Membuat Content Blueprint (${mock ? "MOCK" : "GEMINI/FALLBACK"}, ${language.toUpperCase()}, ${aspectRatio})...`
   );
   const blueprint = await generateBlueprint({
     topic,
     preset,
     brandTag,
     slideCount: slides,
+    language,
+    aspectRatio,
     mock,
   });
 
@@ -96,18 +103,144 @@ export async function runContentJob(
     sceneBgDataUris[Number(idxStr)] = fileToDataUri(filePath);
   }
 
+  return renderJobFromBlueprint({
+    jobDir,
+    blueprint,
+    sceneBgDataUris,
+    outputs,
+    voice,
+    noTts,
+    bgm,
+    bgmVolume,
+    serveUrl: options.serveUrl,
+  });
+}
+
+export interface RerenderOptions {
+  jobDir: string;
+  blueprint: ContentBlueprint;
+  outputs: OutputType[];
+  voice?: string;
+  noTts?: boolean;
+  bgm?: string;
+  bgmVolume?: number;
+  serveUrl?: string;
+}
+
+/**
+ * Re-renders selected outputs from an edited ContentBlueprint without calling AI again,
+ * reusing existing raw_images on disk.
+ */
+export async function rerenderFromBlueprint(
+  options: RerenderOptions
+): Promise<string> {
+  const {
+    jobDir,
+    blueprint,
+    outputs,
+    voice,
+    noTts = false,
+    bgm,
+    bgmVolume,
+    serveUrl,
+  } = options;
+
+  fs.mkdirSync(jobDir, { recursive: true });
+  fs.writeFileSync(
+    path.join(jobDir, "blueprint.json"),
+    JSON.stringify(blueprint, null, 2),
+    "utf-8"
+  );
+  fs.writeFileSync(
+    path.join(jobDir, "caption.txt"),
+    `${blueprint.caption}\n\n${blueprint.hashtags.join(" ")}\n`,
+    "utf-8"
+  );
+
+  const rawDir = path.join(jobDir, "raw_images");
+  const sceneBgDataUris: Record<number, string> = {};
+
+  for (const scene of blueprint.scenes) {
+    const candidates = [
+      path.join(rawDir, `raw_scene_${scene.index}.png`),
+      path.join(rawDir, `raw_scene_${scene.index}.jpg`),
+      path.join(rawDir, `raw_scene_${scene.index}.svg`),
+    ];
+    const existing = candidates.find((p) => fs.existsSync(p));
+    if (existing) {
+      sceneBgDataUris[scene.index] = fileToDataUri(existing);
+    }
+  }
+
+  if (Object.keys(sceneBgDataUris).length === 0) {
+    const visuals = await generateRawVisuals(blueprint, rawDir, "procedural");
+    for (const [idxStr, filePath] of Object.entries(visuals.sceneImages)) {
+      sceneBgDataUris[Number(idxStr)] = fileToDataUri(filePath);
+    }
+  }
+
+  return renderJobFromBlueprint({
+    jobDir,
+    blueprint,
+    sceneBgDataUris,
+    outputs,
+    voice,
+    noTts,
+    bgm,
+    bgmVolume,
+    serveUrl,
+  });
+}
+
+async function renderJobFromBlueprint(params: {
+  jobDir: string;
+  blueprint: ContentBlueprint;
+  sceneBgDataUris: Record<number, string>;
+  outputs: OutputType[];
+  voice?: string;
+  noTts?: boolean;
+  bgm?: string;
+  bgmVolume?: number;
+  serveUrl?: string;
+}): Promise<string> {
+  const {
+    jobDir,
+    blueprint,
+    sceneBgDataUris,
+    outputs,
+    voice,
+    noTts = false,
+    bgm,
+    bgmVolume = 0.14,
+  } = params;
+
+  const brandConfig = loadBrandConfig();
+  let logoDataUri: string | undefined;
+  if (brandConfig.logoPath) {
+    const resolvedLogo = path.resolve(process.cwd(), brandConfig.logoPath);
+    if (fs.existsSync(resolvedLogo)) {
+      logoDataUri = fileToDataUri(resolvedLogo);
+    }
+  }
+
   const sceneAudioDataUris: Record<number, string> = {};
   let sceneWordTimings: Record<number, WordTiming[]> = {};
   let bgmDataUri: string | undefined;
 
   if (outputs.includes("video")) {
     if (!noTts) {
-      console.log(
-        `[2.5/4] Membuat Voiceover Edge-TTS (${voice || process.env.TTS_VOICE || "id-ID-ArdiNeural"})...`
-      );
+      const effectiveVoice =
+        voice ||
+        process.env.TTS_VOICE ||
+        (blueprint.language === "en" ? "en-US-AndrewNeural" : "id-ID-ArdiNeural");
+      console.log(`[2.5/4] Membuat Voiceover Edge-TTS (${effectiveVoice})...`);
       try {
         const audioDir = path.join(jobDir, "audio");
-        const ttsResult = await generateVoiceovers(blueprint, audioDir, voice);
+        const ttsResult = await generateVoiceovers(
+          blueprint,
+          audioDir,
+          effectiveVoice
+        );
         sceneWordTimings = ttsResult.sceneWordTimings;
         for (const scene of blueprint.scenes) {
           const dur = ttsResult.sceneDurations[scene.index];
@@ -128,9 +261,8 @@ export async function runContentJob(
       }
     }
 
-    const defaultBgm = path.resolve(process.cwd(), "assets", "ambient_dark.mp3");
-    const bgmPath = bgm ? path.resolve(process.cwd(), bgm) : defaultBgm;
-    if (fs.existsSync(bgmPath)) {
+    const bgmPath = resolveBgmPath(bgm);
+    if (bgmPath && fs.existsSync(bgmPath)) {
       bgmDataUri = fileToDataUri(bgmPath);
     }
   }
@@ -140,7 +272,7 @@ export async function runContentJob(
   );
 
   if (needsRemotion) {
-    let serveUrl = options.serveUrl;
+    let serveUrl = params.serveUrl;
     if (!serveUrl) {
       console.log(`[3/4] Bundling Remotion project...`);
       serveUrl = await bundleRemotionProject();
@@ -155,18 +287,20 @@ export async function runContentJob(
       fs.mkdirSync(carouselDir, { recursive: true });
 
       for (const scene of blueprint.scenes) {
+        const isEn = blueprint.language === "en";
         const inputProps = {
           preset: blueprint.preset,
           brandTag: blueprint.brandTag,
           hookTitle: blueprint.hookTitle,
           totalSlides: blueprint.scenes.length,
           scene,
+          aspectRatio: blueprint.aspectRatio || "4:5",
           bgDataUri: sceneBgDataUris[scene.index],
           logoDataUri,
           coverBadge: brandConfig.coverBadge,
           ctaBadge: brandConfig.ctaBadge,
-          ctaFooterText: brandConfig.ctaFooterText,
-          swipeFooterText: brandConfig.swipeFooterText,
+          ctaFooterText: isEn ? "Save & share if helpful" : brandConfig.ctaFooterText,
+          swipeFooterText: isEn ? "Swipe to continue →" : brandConfig.swipeFooterText,
         };
         const composition = await selectComposition({
           serveUrl,
@@ -210,6 +344,7 @@ export async function runContentJob(
         sceneAudioDataUris,
         sceneWordTimings,
         bgmDataUri,
+        bgmVolume,
         logoDataUri,
       };
       const composition = await selectComposition({
@@ -228,7 +363,100 @@ export async function runContentJob(
     }
   }
 
+  writeJobManifest(jobDir, blueprint);
   return jobDir;
+}
+
+function resolveBgmPath(bgm?: string): string | null {
+  if (bgm === "none") return null;
+  if (!bgm || bgm === "ambient_dark") {
+    return path.resolve(process.cwd(), "assets", "ambient_dark.mp3");
+  }
+  if (bgm === "lofi_calm") {
+    return path.resolve(process.cwd(), "assets", "lofi_calm.mp3");
+  }
+  if (bgm === "cinematic_pulse") {
+    return path.resolve(process.cwd(), "assets", "cinematic_pulse.mp3");
+  }
+  return path.resolve(process.cwd(), bgm);
+}
+
+function writeJobManifest(jobDir: string, blueprint: ContentBlueprint): OutputManifest {
+  const manifestPath = path.join(jobDir, "manifest.json");
+  let createdAt = new Date().toISOString();
+  if (fs.existsSync(manifestPath)) {
+    try {
+      const prev = JSON.parse(fs.readFileSync(manifestPath, "utf-8")) as {
+        createdAt?: string;
+      };
+      if (prev.createdAt) createdAt = prev.createdAt;
+    } catch {
+      // ignore
+    }
+  }
+
+  const carouselDir = path.join(jobDir, "carousel");
+  const carouselSlides = fs.existsSync(carouselDir)
+    ? fs
+        .readdirSync(carouselDir)
+        .filter((f) => f.endsWith(".png"))
+        .sort()
+        .map((f) => `carousel/${f}`)
+    : [];
+
+  const rawDir = path.join(jobDir, "raw_images");
+  const rawImages = fs.existsSync(rawDir)
+    ? fs
+        .readdirSync(rawDir)
+        .filter((f) => /\.(png|svg|jpe?g)$/i.test(f))
+        .sort()
+        .map((f) => `raw_images/${f}`)
+    : [];
+
+  const audioDir = path.join(jobDir, "audio");
+  const audioFiles = fs.existsSync(audioDir)
+    ? fs
+        .readdirSync(audioDir)
+        .filter((f) => f.endsWith(".mp3"))
+        .sort()
+        .map((f) => `audio/${f}`)
+    : [];
+
+  const hasPoster = fs.existsSync(path.join(jobDir, "poster.png"));
+  const hasVideo = fs.existsSync(path.join(jobDir, "video.mp4"));
+  const videoDurationSeconds = hasVideo
+    ? Number(
+        blueprint.scenes
+          .reduce((sum, s) => sum + s.durationSeconds, 0)
+          .toFixed(2)
+      )
+    : null;
+
+  const manifest: OutputManifest = {
+    version: "1.0",
+    jobId: path.basename(jobDir),
+    createdAt,
+    updatedAt: new Date().toISOString(),
+    topic: blueprint.topic,
+    hookTitle: blueprint.hookTitle,
+    preset: blueprint.preset,
+    brandTag: blueprint.brandTag,
+    outputs: {
+      carouselSlides,
+      poster: hasPoster ? "poster.png" : null,
+      video: hasVideo ? "video.mp4" : null,
+      rawImages,
+      audioFiles,
+      captionFile: "caption.txt",
+      blueprintFile: "blueprint.json",
+    },
+    caption: blueprint.caption,
+    hashtags: blueprint.hashtags,
+    videoDurationSeconds,
+  };
+
+  fs.writeFileSync(manifestPath, JSON.stringify(manifest, null, 2), "utf-8");
+  return manifest;
 }
 
 function fileToDataUri(filePath: string): string {

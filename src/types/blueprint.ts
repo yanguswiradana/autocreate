@@ -17,6 +17,12 @@ export const OutputTypeSchema = z.enum([
 
 export type OutputType = z.infer<typeof OutputTypeSchema>;
 
+export const LanguageSchema = z.enum(["id", "en"]);
+export type Language = z.infer<typeof LanguageSchema>;
+
+export const AspectRatioSchema = z.enum(["4:5", "1:1"]);
+export type AspectRatio = z.infer<typeof AspectRatioSchema>;
+
 export const SceneSchema = z.object({
   index: z.number().int().min(1),
   role: z.enum(["cover", "content", "cta"]),
@@ -35,6 +41,8 @@ export const ContentBlueprintSchema = z.object({
   subtitle: z.string().min(1),
   brandTag: z.string().default("@autocreate"),
   preset: PresetIdSchema,
+  language: LanguageSchema.default("id"),
+  aspectRatio: AspectRatioSchema.default("4:5"),
   scenes: z.array(SceneSchema).min(3).max(10),
   caption: z.string().min(1),
   hashtags: z.array(z.string()).min(3).max(15),

@@ -1,8 +1,10 @@
 import { GoogleGenAI } from "@google/genai";
 import { THEME_PRESETS } from "../presets/themes";
 import {
+  AspectRatio,
   ContentBlueprint,
   ContentBlueprintSchema,
+  Language,
   PresetId,
 } from "../types/blueprint";
 
@@ -11,6 +13,8 @@ export interface GenerateBlueprintOptions {
   preset: PresetId;
   brandTag?: string;
   slideCount?: number;
+  language?: Language;
+  aspectRatio?: AspectRatio;
   mock?: boolean;
 }
 
@@ -29,29 +33,35 @@ export async function generateBlueprint(
     preset,
     brandTag = "@autocreate",
     slideCount = 5,
+    language = "id",
+    aspectRatio = "4:5",
     mock = false,
   } = options;
 
   if (mock) {
-    return buildMockBlueprint(topic, preset, brandTag);
+    return buildMockBlueprint(topic, preset, brandTag, language, aspectRatio);
   }
 
   const theme = THEME_PRESETS[preset];
+  const langLabel = language === "en" ? "Bahasa Inggris (English)" : "Bahasa Indonesia";
   const systemPrompt = `Kamu adalah Creative Director untuk konten media sosial bertema "${theme.name}" (gelap, elegan, tajam, tidak klise).
-Tugasmu mengubah sebuah topik menjadi ContentBlueprint JSON dalam Bahasa Indonesia yang siap dirender menjadi Multi-Slide Carousel DAN Short-Form Video.
+Tugasmu mengubah sebuah topik menjadi ContentBlueprint JSON dalam ${langLabel} yang siap dirender menjadi Multi-Slide Carousel DAN Short-Form Video.
 
 Aturan ketat:
-1. Total scenes = ${slideCount} (Scene 1 role="cover", Scene terakhir role="cta", sisanya role="content").
-2. slideTitle: singkat, punchy, maksimal 7 kata.
-3. slideBody: padat & mudah dibaca di layar HP, maksimal 22 kata.
-4. narrationText: bahasa lisan Indonesia yang natural untuk voiceover video (1-2 kalimat per scene).
-5. visualPrompt: deskripsi visual dalam Bahasa Inggris untuk latar belakang polos (tanpa teks), wajib selaras dengan gaya: "${theme.visualStyleAnchor}".
-6. durationSeconds: estimasi durasi baca narrationText (antara 3 sampai 6 detik).
-7. Kembalikan HANYA JSON valid sesuai skema berikut tanpa markdown code fence.`;
+1. Seluruh teks konten (hookTitle, subtitle, slideTitle, slideBody, narrationText, caption, hashtags) WAJIB ditulis dalam ${langLabel}.
+2. Total scenes = ${slideCount} (Scene 1 role="cover", Scene terakhir role="cta", sisanya role="content").
+3. slideTitle: singkat, punchy, maksimal 7 kata.
+4. slideBody: padat & mudah dibaca di layar HP, maksimal 22 kata.
+5. narrationText: bahasa lisan yang natural untuk voiceover video (1-2 kalimat per scene).
+6. visualPrompt: deskripsi visual dalam Bahasa Inggris untuk latar belakang polos (tanpa teks), wajib selaras dengan gaya: "${theme.visualStyleAnchor}".
+7. durationSeconds: estimasi durasi baca narrationText (antara 3 sampai 6 detik).
+8. Kembalikan HANYA JSON valid sesuai skema berikut tanpa markdown code fence.`;
 
   const userPrompt = `Topik: "${topic}"
 Brand tag: "${brandTag}"
 Preset: "${preset}"
+Bahasa: "${language}"
+Rasio: "${aspectRatio}"
 
 Format JSON yang wajib diikuti:
 {
@@ -60,6 +70,8 @@ Format JSON yang wajib diikuti:
   "subtitle": string,
   "brandTag": string,
   "preset": "${preset}",
+  "language": "${language}",
+  "aspectRatio": "${aspectRatio}",
   "scenes": [
     {
       "index": number,
@@ -207,15 +219,70 @@ function parseBlueprintJson(rawText: string): ContentBlueprint {
 function buildMockBlueprint(
   topic: string,
   preset: PresetId,
-  brandTag: string
+  brandTag: string,
+  language: Language,
+  aspectRatio: AspectRatio
 ): ContentBlueprint {
   const theme = THEME_PRESETS[preset];
+  if (language === "en") {
+    return {
+      topic,
+      hookTitle: topic,
+      subtitle: "Sharp insights most people overlook.",
+      brandTag,
+      preset,
+      language,
+      aspectRatio,
+      scenes: [
+        {
+          index: 1,
+          role: "cover",
+          slideTitle: topic,
+          slideBody: "Why small consistent habits always beat bursts of motivation.",
+          narrationText: `Ever noticed why ${topic} quietly shapes your long-term results?`,
+          visualPrompt: `Minimalist dark luxury focal object representing ${topic}, ${theme.visualStyleAnchor}`,
+          durationSeconds: 4,
+        },
+        {
+          index: 2,
+          role: "content",
+          slideTitle: "1. Build Systems, Not Moods",
+          slideBody: "Motivation fluctuates daily. A simple system keeps you moving even on low-energy days.",
+          narrationText: "First, stop relying on mood. Build a small system you can run even when tired.",
+          visualPrompt: `Sleek dark geometric architecture with subtle light beam, ${theme.visualStyleAnchor}`,
+          durationSeconds: 4,
+        },
+        {
+          index: 3,
+          role: "content",
+          slideTitle: "2. Remove Starting Friction",
+          slideBody: "The fewer steps between you and the task, the harder it is to procrastinate.",
+          narrationText: "Second, remove friction in the first two minutes so starting feels effortless.",
+          visualPrompt: `Minimalist desk in dark room with single warm lamp, ${theme.visualStyleAnchor}`,
+          durationSeconds: 4,
+        },
+        {
+          index: 4,
+          role: "cta",
+          slideTitle: "Save & Apply Today",
+          slideBody: "Share this with someone who needs the reminder, and follow for more.",
+          narrationText: "Save this post as a reminder, and follow for the next breakdown.",
+          visualPrompt: `Calm dark luxury horizon at twilight, minimalist silhouette, ${theme.visualStyleAnchor}`,
+          durationSeconds: 3,
+        },
+      ],
+      caption: `${topic}\n\nMost people look for big breakthroughs, when the real edge comes from small daily execution.\n\nSave this post for later.`,
+      hashtags: ["#productivity", "#mindset", "#focus", "#growth", "#strategy"],
+    };
+  }
   return {
     topic,
     hookTitle: topic,
     subtitle: "Ringkasan tajam yang jarang disadari banyak orang.",
     brandTag,
     preset,
+    language,
+    aspectRatio,
     scenes: [
       {
         index: 1,

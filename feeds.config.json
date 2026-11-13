@@ -1,0 +1,11 @@
+{
+  "feeds": [
+    "https://hnrss.org/frontpage",
+    "https://techcrunch.com/category/artificial-intelligence/feed/",
+    "https://www.theverge.com/rss/ai-artificial-intelligence/index.xml"
+  ],
+  "count": 3,
+  "nicheHint": "AI, teknologi, produktivitas, dan wawasan bisnis modern",
+  "defaultPreset": "midnight_tech",
+  "defaultOutputs": ["carousel", "video"]
+}

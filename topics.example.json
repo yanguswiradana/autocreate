@@ -1,0 +1,24 @@
+[
+  {
+    "topic": "Kenapa Otak Susah Fokus di Era AI",
+    "preset": "midnight_tech",
+    "outputs": ["carousel", "video"],
+    "brandTag": "@autocreate",
+    "slides": 5
+  },
+  {
+    "topic": "3 Prinsip Stoikisme untuk Menghadapi Tekanan Kerja",
+    "preset": "noir_editorial",
+    "outputs": ["carousel", "poster"],
+    "brandTag": "@autocreate",
+    "slides": 5
+  },
+  {
+    "topic": "Seni Berkata Tidak agar Hidup Lebih Tenang",
+    "preset": "monochrome_luxury",
+    "outputs": ["video"],
+    "brandTag": "@autocreate",
+    "slides": 4,
+    "voice": "id-ID-GadisNeural"
+  }
+]

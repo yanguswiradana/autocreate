@@ -2,6 +2,7 @@ import React from "react";
 import {
   AbsoluteFill,
   Audio,
+  Easing,
   Img,
   Sequence,
   interpolate,
@@ -10,10 +11,12 @@ import {
 } from "remotion";
 import { getThemePreset } from "../presets/themes";
 import type { WordTiming } from "../services/tts";
-import { ContentBlueprint, Scene } from "../types/blueprint";
+import { ContentBlueprint, Scene, VideoTransition } from "../types/blueprint";
+import type { BrandkitOverride } from "../types/brandkit";
 
 export interface ShortVideoProps {
   blueprint: ContentBlueprint;
+  brandkit?: BrandkitOverride;
   sceneBgDataUris: Record<number, string>;
   sceneAudioDataUris?: Record<number, string>;
   sceneWordTimings?: Record<number, WordTiming[]>;
@@ -26,32 +29,80 @@ const SceneSegment: React.FC<{
   scene: Scene;
   brandTag: string;
   preset: ContentBlueprint["preset"];
+  brandkit?: BrandkitOverride;
+  isLandscape?: boolean;
   bgDataUri?: string;
   logoDataUri?: string;
   wordTimings?: WordTiming[];
   totalScenes: number;
+  transition?: VideoTransition;
+  isFirst?: boolean;
+  isLast?: boolean;
 }> = ({
   scene,
   brandTag,
   preset,
+  brandkit,
+  isLandscape = false,
   bgDataUri,
   logoDataUri,
   wordTimings,
   totalScenes,
+  transition = "crossfade",
+  isFirst = false,
+  isLast = false,
 }) => {
   const frame = useCurrentFrame();
   const { durationInFrames, fps } = useVideoConfig();
-  const theme = getThemePreset(preset);
+  const theme = getThemePreset(preset, brandkit);
   const currentSec = frame / fps;
 
-  const scale = interpolate(frame, [0, durationInFrames], [1.0, 1.09], {
+  const tFrames = Math.max(4, Math.min(12, Math.floor(durationInFrames / 4)));
+  const enterProgress = interpolate(frame, [0, tFrames], [0, 1], {
+    extrapolateLeft: "clamp",
     extrapolateRight: "clamp",
+    easing: Easing.out(Easing.cubic),
   });
+  const exitProgress = interpolate(
+    frame,
+    [Math.max(0, durationInFrames - tFrames), durationInFrames],
+    [0, 1],
+    {
+      extrapolateLeft: "clamp",
+      extrapolateRight: "clamp",
+      easing: Easing.in(Easing.cubic),
+    }
+  );
+
+  const scale =
+    transition === "zoom"
+      ? interpolate(frame, [0, tFrames, durationInFrames], [1.14, 1.02, 1.09], {
+          extrapolateRight: "clamp",
+          easing: Easing.out(Easing.quad),
+        })
+      : interpolate(frame, [0, durationInFrames], [1.0, 1.09], {
+          extrapolateRight: "clamp",
+        });
+
+  const segmentOpacity =
+    transition === "none"
+      ? 1
+      : (isFirst ? 1 : 0.15 + 0.85 * enterProgress) *
+        (isLast ? 1 : 1 - 0.85 * exitProgress);
+
+  const segmentTranslateX =
+    transition === "slide"
+      ? (isFirst ? 0 : (1 - enterProgress) * 64) +
+        (isLast ? 0 : -exitProgress * 48)
+      : 0;
+
   const textOpacity = interpolate(frame, [0, 12], [0, 1], {
     extrapolateRight: "clamp",
+    easing: Easing.out(Easing.cubic),
   });
   const translateY = interpolate(frame, [0, 14], [24, 0], {
     extrapolateRight: "clamp",
+    easing: Easing.out(Easing.cubic),
   });
 
   return (
@@ -60,6 +111,11 @@ const SceneSegment: React.FC<{
         backgroundColor: theme.bgPrimary,
         color: theme.textPrimary,
         fontFamily: theme.fontBody,
+        opacity: segmentOpacity,
+        transform:
+          segmentTranslateX !== 0
+            ? `translateX(${segmentTranslateX}px)`
+            : undefined,
       }}
     >
       {bgDataUri ? (
@@ -97,7 +153,7 @@ const SceneSegment: React.FC<{
           flexDirection: "column",
           justifyContent: "space-between",
           height: "100%",
-          padding: "110px 72px 140px",
+          padding: isLandscape ? "56px 96px 64px" : "110px 72px 140px",
           boxSizing: "border-box",
         }}
       >
@@ -285,6 +341,7 @@ const DynamicSubtitle: React.FC<{
 
 export const ShortVideo: React.FC<ShortVideoProps> = ({
   blueprint,
+  brandkit,
   sceneBgDataUris,
   sceneAudioDataUris = {},
   sceneWordTimings = {},
@@ -294,7 +351,7 @@ export const ShortVideo: React.FC<ShortVideoProps> = ({
 }) => {
   const { fps, durationInFrames } = useVideoConfig();
   const frame = useCurrentFrame();
-  const theme = getThemePreset(blueprint.preset);
+  const theme = getThemePreset(blueprint.preset, brandkit);
 
   let currentStart = 0;
   const segments = blueprint.scenes.map((scene) => {
@@ -312,7 +369,7 @@ export const ShortVideo: React.FC<ShortVideoProps> = ({
         <Audio src={bgmDataUri} loop volume={bgmVolume} />
       ) : null}
 
-      {segments.map(({ scene, from, duration }) => (
+      {segments.map(({ scene, from, duration }, idx) => (
         <Sequence key={scene.index} from={from} durationInFrames={duration}>
           {sceneAudioDataUris[scene.index] ? (
             <Audio src={sceneAudioDataUris[scene.index]} volume={1} />
@@ -321,10 +378,15 @@ export const ShortVideo: React.FC<ShortVideoProps> = ({
             scene={scene}
             brandTag={blueprint.brandTag}
             preset={blueprint.preset}
+            brandkit={brandkit}
+            isLandscape={blueprint.aspectRatio === "16:9"}
             bgDataUri={sceneBgDataUris[scene.index]}
             logoDataUri={logoDataUri}
             wordTimings={sceneWordTimings[scene.index]}
             totalScenes={blueprint.scenes.length}
+            transition={blueprint.videoTransition || "crossfade"}
+            isFirst={idx === 0}
+            isLast={idx === segments.length - 1}
           />
         </Sequence>
       ))}

@@ -2,21 +2,34 @@ import React from "react";
 import { AbsoluteFill, Img } from "remotion";
 import { getThemePreset } from "../presets/themes";
 import { ContentBlueprint } from "../types/blueprint";
+import type { BrandkitOverride } from "../types/brandkit";
 
 export interface PosterCardProps {
   blueprint: ContentBlueprint;
+  brandkit?: BrandkitOverride;
   bgDataUri?: string;
   logoDataUri?: string;
 }
 
 export const PosterCard: React.FC<PosterCardProps> = ({
   blueprint,
+  brandkit,
   bgDataUri,
   logoDataUri,
 }) => {
-  const theme = getThemePreset(blueprint.preset);
+  const theme = getThemePreset(blueprint.preset, brandkit);
   const contentScenes = blueprint.scenes.filter((s) => s.role === "content");
   const isSquare = blueprint.aspectRatio === "1:1";
+  const isVertical = blueprint.aspectRatio === "9:16";
+  const isLandscape = blueprint.aspectRatio === "16:9";
+
+  const containerPadding = isVertical
+    ? "110px 72px 130px"
+    : isLandscape
+      ? "52px 96px"
+      : isSquare
+        ? "48px 64px"
+        : "68px 72px";
 
   return (
     <AbsoluteFill
@@ -60,7 +73,7 @@ export const PosterCard: React.FC<PosterCardProps> = ({
           flexDirection: "column",
           justifyContent: "space-between",
           height: "100%",
-          padding: isSquare ? "48px 64px" : "68px 72px",
+          padding: containerPadding,
           boxSizing: "border-box",
         }}
       >
@@ -109,7 +122,14 @@ export const PosterCard: React.FC<PosterCardProps> = ({
           </h1>
         </div>
 
-        <div style={{ display: "flex", flexDirection: "column", gap: isSquare ? 12 : 20 }}>
+        <div
+          style={{
+            display: isLandscape ? "grid" : "flex",
+            gridTemplateColumns: isLandscape ? "1fr 1fr" : undefined,
+            flexDirection: isLandscape ? undefined : "column",
+            gap: isSquare || isLandscape ? 14 : 20,
+          }}
+        >
           {contentScenes.slice(0, isSquare ? 3 : 4).map((scene, idx) => (
             <div
               key={scene.index}

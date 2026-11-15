@@ -20,8 +20,32 @@ export type OutputType = z.infer<typeof OutputTypeSchema>;
 export const LanguageSchema = z.enum(["id", "en"]);
 export type Language = z.infer<typeof LanguageSchema>;
 
-export const AspectRatioSchema = z.enum(["4:5", "1:1"]);
+export const AspectRatioSchema = z.enum(["4:5", "1:1", "9:16", "16:9"]);
 export type AspectRatio = z.infer<typeof AspectRatioSchema>;
+
+export const SlideLayoutSchema = z.enum([
+  "editorial",
+  "split_card",
+  "quote_focus",
+  "big_number",
+]);
+export type SlideLayout = z.infer<typeof SlideLayoutSchema>;
+
+export const VideoTransitionSchema = z.enum([
+  "crossfade",
+  "slide",
+  "zoom",
+  "none",
+]);
+export type VideoTransition = z.infer<typeof VideoTransitionSchema>;
+
+export const SeriesPresetSchema = z.enum([
+  "edukasi",
+  "fakta_cepat",
+  "storytelling",
+  "promo_brand",
+]);
+export type SeriesPreset = z.infer<typeof SeriesPresetSchema>;
 
 export const SceneSchema = z.object({
   index: z.number().int().min(1),
@@ -31,6 +55,7 @@ export const SceneSchema = z.object({
   narrationText: z.string().min(1),
   visualPrompt: z.string().min(1),
   durationSeconds: z.number().min(2).max(15).default(4),
+  layout: SlideLayoutSchema.optional(),
 });
 
 export type Scene = z.infer<typeof SceneSchema>;
@@ -43,6 +68,8 @@ export const ContentBlueprintSchema = z.object({
   preset: PresetIdSchema,
   language: LanguageSchema.default("id"),
   aspectRatio: AspectRatioSchema.default("4:5"),
+  series: SeriesPresetSchema.optional(),
+  videoTransition: VideoTransitionSchema.optional(),
   scenes: z.array(SceneSchema).min(3).max(10),
   caption: z.string().min(1),
   hashtags: z.array(z.string()).min(3).max(15),

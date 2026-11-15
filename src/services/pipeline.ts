@@ -5,6 +5,10 @@ import { renderMedia, renderStill, selectComposition } from "@remotion/renderer"
 import { loadBrandConfig } from "../config/brand";
 import { generateBlueprint } from "./gemini";
 import { generateVoiceovers, WordTiming } from "./tts";
+import {
+  extractReferenceUrls,
+  formatReferencesForPrompt,
+} from "./urlExtractor";
 import { generateRawVisuals, VisualProvider } from "./visualFactory";
 import {
   AspectRatio,
@@ -12,14 +16,18 @@ import {
   Language,
   OutputType,
   PresetId,
+  SeriesPreset,
 } from "../types/blueprint";
+import type { BrandkitOverride } from "../types/brandkit";
 import { OutputManifest } from "../types/manifest";
 
 export interface ContentJobOptions {
   topic: string;
   preset: PresetId;
+  series?: SeriesPreset;
   outputs: OutputType[];
   brandTag?: string;
+  brandkit?: BrandkitOverride;
   slides?: number;
   language?: Language;
   aspectRatio?: AspectRatio;
@@ -29,6 +37,10 @@ export interface ContentJobOptions {
   noTts?: boolean;
   bgm?: string;
   bgmVolume?: number;
+  /** Optional custom scene images keyed by 1-based scene index (data URI, http(s) URL, or local file path) */
+  customSceneImages?: Record<number, string>;
+  /** Optional reference article/news URLs to extract factual context for AI */
+  referenceUrls?: string[];
   /** Optional pre-bundled Remotion serveUrl to speed up batch runs */
   serveUrl?: string;
 }
@@ -49,8 +61,10 @@ export async function runContentJob(
   const {
     topic,
     preset,
+    series,
     outputs,
-    brandTag = brandConfig.brandTag,
+    brandkit,
+    brandTag = brandkit?.brandTag || brandConfig.brandTag,
     slides = 5,
     language = "id",
     aspectRatio = "4:5",
@@ -62,23 +76,50 @@ export async function runContentJob(
     bgmVolume,
   } = options;
 
+  let referenceContext: string | undefined;
+  let effectiveTopic = topic.trim();
+  if (options.referenceUrls && options.referenceUrls.length > 0) {
+    console.log(
+      `\n[0/4] Mengambil bahan referensi dari ${options.referenceUrls.length} link...`
+    );
+    const refs = await extractReferenceUrls(options.referenceUrls);
+    const validRefs = refs.filter((r) => r.ok);
+    console.log(`      Berhasil ekstrak ${validRefs.length}/${refs.length} link referensi.`);
+    const formatted = formatReferencesForPrompt(refs);
+    if (formatted) referenceContext = formatted;
+    if (!effectiveTopic) {
+      effectiveTopic =
+        validRefs
+          .map((r) => r.title)
+          .slice(0, 2)
+          .join(" & ")
+          .slice(0, 120) || "Ringkasan Berita & Referensi";
+    }
+  }
+  if (!effectiveTopic) {
+    throw new Error("Topik atau minimal 1 Link Referensi wajib diisi.");
+  }
+
   const timestamp = new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19);
   const jobDir = path.resolve(
     process.cwd(),
     "outputs",
-    `${timestamp}_${slugify(topic)}`
+    `${timestamp}_${slugify(effectiveTopic)}`
   );
 
   console.log(
     `\n[1/4] Membuat Content Blueprint (${mock ? "MOCK" : "GEMINI/FALLBACK"}, ${language.toUpperCase()}, ${aspectRatio})...`
   );
   const blueprint = await generateBlueprint({
-    topic,
+    topic: effectiveTopic,
     preset,
+    series,
     brandTag,
     slideCount: slides,
     language,
     aspectRatio,
+    brandkit,
+    referenceContext,
     mock,
   });
 
@@ -103,9 +144,29 @@ export async function runContentJob(
     sceneBgDataUris[Number(idxStr)] = fileToDataUri(filePath);
   }
 
+  if (options.customSceneImages) {
+    for (const [idxStr, source] of Object.entries(options.customSceneImages)) {
+      const idx = Number(idxStr);
+      if (!Number.isInteger(idx) || idx < 1 || !source) continue;
+      let dataUri: string | undefined;
+      if (source.startsWith("data:image/")) {
+        dataUri = source;
+      } else if (/^https?:\/\//i.test(source)) {
+        dataUri = await remoteUrlToDataUri(source);
+      } else if (fs.existsSync(source)) {
+        dataUri = fileToDataUri(source);
+      }
+      if (dataUri) {
+        saveSceneImageFromDataUri(rawDir, idx, dataUri);
+        sceneBgDataUris[idx] = dataUri;
+      }
+    }
+  }
+
   return renderJobFromBlueprint({
     jobDir,
     blueprint,
+    brandkit,
     sceneBgDataUris,
     outputs,
     voice,
@@ -119,6 +180,7 @@ export async function runContentJob(
 export interface RerenderOptions {
   jobDir: string;
   blueprint: ContentBlueprint;
+  brandkit?: BrandkitOverride;
   outputs: OutputType[];
   voice?: string;
   noTts?: boolean;
@@ -164,6 +226,8 @@ export async function rerenderFromBlueprint(
     const candidates = [
       path.join(rawDir, `raw_scene_${scene.index}.png`),
       path.join(rawDir, `raw_scene_${scene.index}.jpg`),
+      path.join(rawDir, `raw_scene_${scene.index}.jpeg`),
+      path.join(rawDir, `raw_scene_${scene.index}.webp`),
       path.join(rawDir, `raw_scene_${scene.index}.svg`),
     ];
     const existing = candidates.find((p) => fs.existsSync(p));
@@ -182,6 +246,7 @@ export async function rerenderFromBlueprint(
   return renderJobFromBlueprint({
     jobDir,
     blueprint,
+    brandkit: options.brandkit,
     sceneBgDataUris,
     outputs,
     voice,
@@ -195,6 +260,7 @@ export async function rerenderFromBlueprint(
 async function renderJobFromBlueprint(params: {
   jobDir: string;
   blueprint: ContentBlueprint;
+  brandkit?: BrandkitOverride;
   sceneBgDataUris: Record<number, string>;
   outputs: OutputType[];
   voice?: string;
@@ -206,6 +272,7 @@ async function renderJobFromBlueprint(params: {
   const {
     jobDir,
     blueprint,
+    brandkit,
     sceneBgDataUris,
     outputs,
     voice,
@@ -216,7 +283,10 @@ async function renderJobFromBlueprint(params: {
 
   const brandConfig = loadBrandConfig();
   let logoDataUri: string | undefined;
-  if (brandConfig.logoPath) {
+  if (brandkit?.logoUrl) {
+    logoDataUri = await remoteUrlToDataUri(brandkit.logoUrl);
+  }
+  if (!logoDataUri && brandConfig.logoPath) {
     const resolvedLogo = path.resolve(process.cwd(), brandConfig.logoPath);
     if (fs.existsSync(resolvedLogo)) {
       logoDataUri = fileToDataUri(resolvedLogo);
@@ -295,6 +365,7 @@ async function renderJobFromBlueprint(params: {
           totalSlides: blueprint.scenes.length,
           scene,
           aspectRatio: blueprint.aspectRatio || "4:5",
+          brandkit,
           bgDataUri: sceneBgDataUris[scene.index],
           logoDataUri,
           coverBadge: brandConfig.coverBadge,
@@ -320,6 +391,7 @@ async function renderJobFromBlueprint(params: {
     if (outputs.includes("poster")) {
       const inputProps = {
         blueprint,
+        brandkit,
         bgDataUri: sceneBgDataUris[1],
         logoDataUri,
       };
@@ -340,6 +412,7 @@ async function renderJobFromBlueprint(params: {
     if (outputs.includes("video")) {
       const inputProps = {
         blueprint,
+        brandkit,
         sceneBgDataUris,
         sceneAudioDataUris,
         sceneWordTimings,
@@ -459,6 +532,56 @@ function writeJobManifest(jobDir: string, blueprint: ContentBlueprint): OutputMa
   return manifest;
 }
 
+async function remoteUrlToDataUri(url: string): Promise<string | undefined> {
+  try {
+    const res = await fetch(url);
+    if (!res.ok) return undefined;
+    const mime = res.headers.get("content-type") || "image/png";
+    const buf = Buffer.from(await res.arrayBuffer());
+    return `data:${mime};base64,${buf.toString("base64")}`;
+  } catch {
+    return undefined;
+  }
+}
+
+/**
+ * Saves a base64 image data URI as raw_scene_<index>.<ext> inside rawDir,
+ * replacing any previous raw_scene_<index>.* file for that scene.
+ */
+export function saveSceneImageFromDataUri(
+  rawDir: string,
+  sceneIndex: number,
+  dataUri: string
+): string {
+  const match = dataUri.match(
+    /^data:image\/(png|jpeg|jpg|webp|svg\+xml);base64,([A-Za-z0-9+/=]+)$/i
+  );
+  if (!match) {
+    throw new Error(
+      "Format gambar tidak valid. Gunakan PNG, JPG, WEBP, atau SVG base64 data URI."
+    );
+  }
+  const rawSubtype = match[1].toLowerCase();
+  const ext =
+    rawSubtype === "jpeg"
+      ? "jpg"
+      : rawSubtype === "svg+xml"
+        ? "svg"
+        : rawSubtype;
+
+  fs.mkdirSync(rawDir, { recursive: true });
+  for (const oldExt of ["png", "jpg", "jpeg", "webp", "svg"]) {
+    const oldPath = path.join(rawDir, `raw_scene_${sceneIndex}.${oldExt}`);
+    if (fs.existsSync(oldPath)) {
+      fs.unlinkSync(oldPath);
+    }
+  }
+
+  const outPath = path.join(rawDir, `raw_scene_${sceneIndex}.${ext}`);
+  fs.writeFileSync(outPath, Buffer.from(match[2], "base64"));
+  return outPath;
+}
+
 function fileToDataUri(filePath: string): string {
   const ext = path.extname(filePath).toLowerCase();
   const mime =
@@ -466,11 +589,13 @@ function fileToDataUri(filePath: string): string {
       ? "image/svg+xml"
       : ext === ".jpg" || ext === ".jpeg"
         ? "image/jpeg"
-        : ext === ".mp3"
-          ? "audio/mpeg"
-          : ext === ".wav"
-            ? "audio/wav"
-            : "image/png";
+        : ext === ".webp"
+          ? "image/webp"
+          : ext === ".mp3"
+            ? "audio/mpeg"
+            : ext === ".wav"
+              ? "audio/wav"
+              : "image/png";
   const base64 = fs.readFileSync(filePath).toString("base64");
   return `data:${mime};base64,${base64}`;
 }

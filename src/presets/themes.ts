@@ -1,4 +1,5 @@
 import { PresetId } from "../types/blueprint";
+import type { BrandkitOverride } from "../types/brandkit";
 
 export interface ThemePreset {
   id: PresetId;
@@ -74,6 +75,22 @@ export const THEME_PRESETS: Record<PresetId, ThemePreset> = {
   },
 };
 
-export function getThemePreset(id: PresetId): ThemePreset {
-  return THEME_PRESETS[id];
+export function getThemePreset(
+  id: PresetId,
+  brandkit?: BrandkitOverride
+): ThemePreset {
+  const base = THEME_PRESETS[id];
+  if (!brandkit) return base;
+
+  const accent = brandkit.accentColor || base.accent;
+  return {
+    ...base,
+    bgPrimary: brandkit.bgPrimary || base.bgPrimary,
+    textPrimary: brandkit.textPrimary || base.textPrimary,
+    accent,
+    accentSoft: brandkit.accentColor ? `${accent}24` : base.accentSoft,
+    border: brandkit.accentColor ? `${accent}47` : base.border,
+    fontDisplay: brandkit.fontDisplay || base.fontDisplay,
+    fontBody: brandkit.fontBody || base.fontBody,
+  };
 }

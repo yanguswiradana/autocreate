@@ -1,9 +1,23 @@
 import React from "react";
 import { Composition } from "remotion";
-import { ContentBlueprint } from "../types/blueprint";
+import { AspectRatio, ContentBlueprint } from "../types/blueprint";
 import { CarouselSlide, CarouselSlideProps } from "./CarouselSlide";
 import { PosterCard, PosterCardProps } from "./PosterCard";
 import { ShortVideo, ShortVideoProps } from "./ShortVideo";
+
+function getDimensions(ratio?: AspectRatio): { width: number; height: number } {
+  switch (ratio) {
+    case "1:1":
+      return { width: 1080, height: 1080 };
+    case "9:16":
+      return { width: 1080, height: 1920 };
+    case "16:9":
+      return { width: 1920, height: 1080 };
+    case "4:5":
+    default:
+      return { width: 1080, height: 1350 };
+  }
+}
 
 const DEFAULT_BLUEPRINT: ContentBlueprint = {
   topic: "Kebiasaan Kecil yang Mengubah Hidup",
@@ -70,10 +84,7 @@ export const RemotionRoot: React.FC = () => {
         }
         calculateMetadata={({ props }) => {
           const typedProps = props as unknown as CarouselSlideProps;
-          return {
-            width: 1080,
-            height: typedProps.aspectRatio === "1:1" ? 1080 : 1350,
-          };
+          return getDimensions(typedProps.aspectRatio);
         }}
       />
 
@@ -91,10 +102,7 @@ export const RemotionRoot: React.FC = () => {
         }
         calculateMetadata={({ props }) => {
           const typedProps = props as unknown as PosterCardProps;
-          return {
-            width: 1080,
-            height: typedProps.blueprint.aspectRatio === "1:1" ? 1080 : 1350,
-          };
+          return getDimensions(typedProps.blueprint.aspectRatio);
         }}
       />
 
@@ -117,7 +125,10 @@ export const RemotionRoot: React.FC = () => {
             (sum, s) => sum + s.durationSeconds,
             0
           );
+          const isLandscape = typedProps.blueprint.aspectRatio === "16:9";
           return {
+            width: isLandscape ? 1920 : 1080,
+            height: isLandscape ? 1080 : 1920,
             durationInFrames: Math.max(30, Math.round(totalSec * fps)),
           };
         }}

@@ -1,7 +1,13 @@
 import React from "react";
 import { AbsoluteFill, Img } from "remotion";
 import { getThemePreset } from "../presets/themes";
-import { AspectRatio, PresetId, Scene } from "../types/blueprint";
+import {
+  AspectRatio,
+  PresetId,
+  Scene,
+  SlideLayout,
+} from "../types/blueprint";
+import type { BrandkitOverride } from "../types/brandkit";
 
 export interface CarouselSlideProps {
   preset: PresetId;
@@ -10,6 +16,7 @@ export interface CarouselSlideProps {
   totalSlides: number;
   scene: Scene;
   aspectRatio?: AspectRatio;
+  brandkit?: BrandkitOverride;
   bgDataUri?: string;
   logoDataUri?: string;
   coverBadge?: string;
@@ -24,6 +31,7 @@ export const CarouselSlide: React.FC<CarouselSlideProps> = ({
   totalSlides,
   scene,
   aspectRatio = "4:5",
+  brandkit,
   bgDataUri,
   logoDataUri,
   coverBadge = "INSIGHT BRIEF",
@@ -31,10 +39,40 @@ export const CarouselSlide: React.FC<CarouselSlideProps> = ({
   ctaFooterText = "Simpan & bagikan jika bermanfaat",
   swipeFooterText = "Geser untuk lanjut →",
 }) => {
-  const theme = getThemePreset(preset);
+  const theme = getThemePreset(preset, brandkit);
   const isCover = scene.role === "cover";
   const isCta = scene.role === "cta";
   const isSquare = aspectRatio === "1:1";
+  const isVertical = aspectRatio === "9:16";
+  const isLandscape = aspectRatio === "16:9";
+
+  const layout: SlideLayout =
+    scene.layout ||
+    (isCover
+      ? "editorial"
+      : isCta
+        ? "split_card"
+        : scene.index % 3 === 0
+          ? "quote_focus"
+          : scene.index % 3 === 1
+            ? "big_number"
+            : "split_card");
+
+  const titleSize = isCover
+    ? isSquare || isLandscape
+      ? 64
+      : 76
+    : isSquare || isLandscape
+      ? 52
+      : 60;
+
+  const containerPadding = isVertical
+    ? "120px 80px 140px"
+    : isLandscape
+      ? "56px 110px"
+      : isSquare
+        ? "56px 72px"
+        : "76px 80px";
 
   return (
     <AbsoluteFill
@@ -80,7 +118,7 @@ export const CarouselSlide: React.FC<CarouselSlideProps> = ({
           flexDirection: "column",
           justifyContent: "space-between",
           height: "100%",
-          padding: isSquare ? "56px 72px" : "76px 80px",
+          padding: containerPadding,
           boxSizing: "border-box",
         }}
       >
@@ -135,87 +173,275 @@ export const CarouselSlide: React.FC<CarouselSlideProps> = ({
         </div>
 
         {/* Main Content */}
-        <div
-          style={{
-            display: "flex",
-            flexDirection: "column",
-            gap: 32,
-            marginTop: isCover ? 40 : 0,
-          }}
-        >
-          {isCover && (
-            <div
-              style={{
-                alignSelf: "flex-start",
-                fontSize: 20,
-                letterSpacing: 3.5,
-                textTransform: "uppercase",
-                color: theme.accent,
-                backgroundColor: theme.accentSoft,
-                border: `1px solid ${theme.border}`,
-                padding: "10px 22px",
-                borderRadius: 999,
-                fontWeight: 600,
-              }}
-            >
-              {coverBadge}
-            </div>
-          )}
-
-          {isCta && (
-            <div
-              style={{
-                alignSelf: "flex-start",
-                fontSize: 20,
-                letterSpacing: 3.5,
-                textTransform: "uppercase",
-                color: theme.accent,
-                backgroundColor: theme.accentSoft,
-                border: `1px solid ${theme.border}`,
-                padding: "10px 22px",
-                borderRadius: 999,
-                fontWeight: 600,
-              }}
-            >
-              {ctaBadge}
-            </div>
-          )}
-
-          <h1
-            style={{
-              margin: 0,
-              fontFamily: theme.fontDisplay,
-              fontSize: isCover ? (isSquare ? 64 : 76) : isSquare ? 54 : 62,
-              lineHeight: 1.14,
-              fontWeight: 700,
-              color: theme.textPrimary,
-              letterSpacing: -0.5,
-            }}
-          >
-            {scene.slideTitle}
-          </h1>
-
+        {layout === "big_number" ? (
           <div
             style={{
-              width: 96,
-              height: 3,
-              backgroundColor: theme.accent,
-              borderRadius: 2,
-            }}
-          />
-
-          <p
-            style={{
-              margin: 0,
-              fontSize: isCover ? 34 : 36,
-              lineHeight: 1.52,
-              color: theme.textSecondary,
-              maxWidth: "92%",
+              position: "relative",
+              display: "flex",
+              flexDirection: "column",
+              gap: 28,
             }}
           >
-            {scene.slideBody}
-          </p>
-        </div>
+            <div
+              style={{
+                fontFamily: theme.fontDisplay,
+                fontSize: isSquare || isLandscape ? 140 : 180,
+                fontWeight: 800,
+                lineHeight: 0.9,
+                color: theme.accent,
+                opacity: 0.28,
+                letterSpacing: -4,
+                marginBottom: -20,
+              }}
+            >
+              {String(scene.index).padStart(2, "0")}
+            </div>
+            <h1
+              style={{
+                margin: 0,
+                fontFamily: theme.fontDisplay,
+                fontSize: titleSize,
+                lineHeight: 1.14,
+                fontWeight: 700,
+                color: theme.textPrimary,
+                letterSpacing: -0.5,
+              }}
+            >
+              {scene.slideTitle}
+            </h1>
+            <div
+              style={{
+                width: 96,
+                height: 3,
+                backgroundColor: theme.accent,
+                borderRadius: 2,
+              }}
+            />
+            <p
+              style={{
+                margin: 0,
+                fontSize: 35,
+                lineHeight: 1.52,
+                color: theme.textSecondary,
+                maxWidth: "94%",
+              }}
+            >
+              {scene.slideBody}
+            </p>
+          </div>
+        ) : layout === "quote_focus" ? (
+          <div
+            style={{
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "center",
+              textAlign: "center",
+              gap: 28,
+              padding: "24px 16px",
+            }}
+          >
+            <div
+              style={{
+                fontFamily: theme.fontDisplay,
+                fontSize: 88,
+                lineHeight: 0.6,
+                color: theme.accent,
+                opacity: 0.85,
+              }}
+            >
+              “
+            </div>
+            <h1
+              style={{
+                margin: 0,
+                fontFamily: theme.fontDisplay,
+                fontSize: titleSize,
+                lineHeight: 1.16,
+                fontWeight: 700,
+                color: theme.textPrimary,
+                letterSpacing: -0.4,
+                maxWidth: "94%",
+              }}
+            >
+              {scene.slideTitle}
+            </h1>
+            <div
+              style={{
+                width: 72,
+                height: 3,
+                backgroundColor: theme.accent,
+                borderRadius: 2,
+              }}
+            />
+            <p
+              style={{
+                margin: 0,
+                fontSize: 34,
+                lineHeight: 1.55,
+                color: theme.textSecondary,
+                maxWidth: "88%",
+              }}
+            >
+              {scene.slideBody}
+            </p>
+          </div>
+        ) : layout === "split_card" ? (
+          <div
+            style={{
+              display: "flex",
+              flexDirection: "column",
+              gap: 28,
+              padding: isSquare || isLandscape ? "36px 40px" : "44px 44px",
+              borderRadius: 24,
+              backgroundColor: theme.surface,
+              border: `1px solid ${theme.border}`,
+              boxShadow: "0 24px 60px rgba(0,0,0,0.42)",
+              borderLeft: `6px solid ${theme.accent}`,
+            }}
+          >
+            {isCover && (
+              <div
+                style={{
+                  alignSelf: "flex-start",
+                  fontSize: 18,
+                  letterSpacing: 3.5,
+                  textTransform: "uppercase",
+                  color: theme.accent,
+                  backgroundColor: theme.accentSoft,
+                  border: `1px solid ${theme.border}`,
+                  padding: "8px 18px",
+                  borderRadius: 999,
+                  fontWeight: 600,
+                }}
+              >
+                {coverBadge}
+              </div>
+            )}
+            {isCta && (
+              <div
+                style={{
+                  alignSelf: "flex-start",
+                  fontSize: 18,
+                  letterSpacing: 3.5,
+                  textTransform: "uppercase",
+                  color: theme.accent,
+                  backgroundColor: theme.accentSoft,
+                  border: `1px solid ${theme.border}`,
+                  padding: "8px 18px",
+                  borderRadius: 999,
+                  fontWeight: 600,
+                }}
+              >
+                {ctaBadge}
+              </div>
+            )}
+            <h1
+              style={{
+                margin: 0,
+                fontFamily: theme.fontDisplay,
+                fontSize: titleSize - 4,
+                lineHeight: 1.15,
+                fontWeight: 700,
+                color: theme.textPrimary,
+                letterSpacing: -0.4,
+              }}
+            >
+              {scene.slideTitle}
+            </h1>
+            <p
+              style={{
+                margin: 0,
+                fontSize: 33,
+                lineHeight: 1.52,
+                color: theme.textSecondary,
+              }}
+            >
+              {scene.slideBody}
+            </p>
+          </div>
+        ) : (
+          <div
+            style={{
+              display: "flex",
+              flexDirection: "column",
+              gap: 32,
+              marginTop: isCover ? 40 : 0,
+            }}
+          >
+            {isCover && (
+              <div
+                style={{
+                  alignSelf: "flex-start",
+                  fontSize: 20,
+                  letterSpacing: 3.5,
+                  textTransform: "uppercase",
+                  color: theme.accent,
+                  backgroundColor: theme.accentSoft,
+                  border: `1px solid ${theme.border}`,
+                  padding: "10px 22px",
+                  borderRadius: 999,
+                  fontWeight: 600,
+                }}
+              >
+                {coverBadge}
+              </div>
+            )}
+
+            {isCta && (
+              <div
+                style={{
+                  alignSelf: "flex-start",
+                  fontSize: 20,
+                  letterSpacing: 3.5,
+                  textTransform: "uppercase",
+                  color: theme.accent,
+                  backgroundColor: theme.accentSoft,
+                  border: `1px solid ${theme.border}`,
+                  padding: "10px 22px",
+                  borderRadius: 999,
+                  fontWeight: 600,
+                }}
+              >
+                {ctaBadge}
+              </div>
+            )}
+
+            <h1
+              style={{
+                margin: 0,
+                fontFamily: theme.fontDisplay,
+                fontSize: titleSize,
+                lineHeight: 1.14,
+                fontWeight: 700,
+                color: theme.textPrimary,
+                letterSpacing: -0.5,
+              }}
+            >
+              {scene.slideTitle}
+            </h1>
+
+            <div
+              style={{
+                width: 96,
+                height: 3,
+                backgroundColor: theme.accent,
+                borderRadius: 2,
+              }}
+            />
+
+            <p
+              style={{
+                margin: 0,
+                fontSize: isCover ? 34 : 36,
+                lineHeight: 1.52,
+                color: theme.textSecondary,
+                maxWidth: "92%",
+              }}
+            >
+              {scene.slideBody}
+            </p>
+          </div>
+        )}
 
         {/* Footer */}
         <div

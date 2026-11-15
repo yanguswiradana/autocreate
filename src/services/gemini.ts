@@ -1,4 +1,5 @@
 import { GoogleGenAI } from "@google/genai";
+import { getSeriesPreset } from "../presets/series";
 import { THEME_PRESETS } from "../presets/themes";
 import {
   AspectRatio,
@@ -6,15 +7,20 @@ import {
   ContentBlueprintSchema,
   Language,
   PresetId,
+  SeriesPreset,
 } from "../types/blueprint";
+import type { BrandkitOverride } from "../types/brandkit";
 
 export interface GenerateBlueprintOptions {
   topic: string;
   preset: PresetId;
+  series?: SeriesPreset;
   brandTag?: string;
   slideCount?: number;
   language?: Language;
   aspectRatio?: AspectRatio;
+  brandkit?: BrandkitOverride;
+  referenceContext?: string;
   mock?: boolean;
 }
 
@@ -31,22 +37,48 @@ export async function generateBlueprint(
   const {
     topic,
     preset,
+    series,
     brandTag = "@autocreate",
     slideCount = 5,
     language = "id",
     aspectRatio = "4:5",
+    brandkit,
+    referenceContext,
     mock = false,
   } = options;
 
+  const seriesConfig = getSeriesPreset(series);
+
   if (mock) {
-    return buildMockBlueprint(topic, preset, brandTag, language, aspectRatio);
+    return applySeriesDefaults(
+      buildMockBlueprint(topic, preset, brandTag, language, aspectRatio),
+      series
+    );
   }
 
   const theme = THEME_PRESETS[preset];
   const langLabel = language === "en" ? "Bahasa Inggris (English)" : "Bahasa Indonesia";
+  const brandNotes: string[] = [];
+  if (brandkit?.brandName) brandNotes.push(`Nama Brand: ${brandkit.brandName}`);
+  if (brandkit?.description) brandNotes.push(`Profil Bisnis: ${brandkit.description}`);
+  if (brandkit?.brandVoice) brandNotes.push(`Brand Voice / Tone: ${brandkit.brandVoice}`);
+  if (brandkit?.brandPersonality) brandNotes.push(`Personality: ${brandkit.brandPersonality}`);
+  if (brandkit?.targetAudience) brandNotes.push(`Target Audiens: ${brandkit.targetAudience}`);
+  if (brandkit?.forbiddenWords?.length) {
+    brandNotes.push(`Kata yang DILARANG: ${brandkit.forbiddenWords.join(", ")}`);
+  }
+  const brandSection = brandNotes.length
+    ? `\nPanduan Brandkit Wajib:\n- ${brandNotes.join("\n- ")}\n`
+    : "";
+
+  const referenceSection = referenceContext?.trim()
+    ? `\nBahan Referensi / Sumber Berita Wajib (gunakan fakta, data, dan poin kunci dari sumber di bawah ini; jangan mengarang fakta di luar sumber):\n${referenceContext.trim()}\n`
+    : "";
+
   const systemPrompt = `Kamu adalah Creative Director untuk konten media sosial bertema "${theme.name}" (gelap, elegan, tajam, tidak klise).
 Tugasmu mengubah sebuah topik menjadi ContentBlueprint JSON dalam ${langLabel} yang siap dirender menjadi Multi-Slide Carousel DAN Short-Form Video.
-
+Seri / Gaya Konten: "${seriesConfig.name}" — ${seriesConfig.promptDirective}
+${brandSection}${referenceSection}
 Aturan ketat:
 1. Seluruh teks konten (hookTitle, subtitle, slideTitle, slideBody, narrationText, caption, hashtags) WAJIB ditulis dalam ${langLabel}.
 2. Total scenes = ${slideCount} (Scene 1 role="cover", Scene terakhir role="cta", sisanya role="content").
@@ -91,41 +123,62 @@ Format JSON yang wajib diikuti:
   const hasGemini = isConfigured(process.env.GEMINI_API_KEY, "your_gemini_api_key_here");
   const hasOpenCode = isConfigured(process.env.OPENCODE_API_KEY, "your_opencode_api_key_here");
 
+  let bp: ContentBlueprint;
+
   if (mode === "opencode") {
-    return generateWithOpenCode(systemPrompt, userPrompt);
-  }
-
-  if (mode === "gemini") {
-    return generateWithGemini(systemPrompt, userPrompt);
-  }
-
-  // mode === "auto": try Gemini first, then fall back to OpenCode Go
-  if (hasGemini) {
+    bp = await generateWithOpenCode(systemPrompt, userPrompt);
+  } else if (mode === "gemini") {
+    bp = await generateWithGemini(systemPrompt, userPrompt);
+  } else if (hasGemini) {
     try {
-      return await generateWithGemini(systemPrompt, userPrompt);
+      bp = await generateWithGemini(systemPrompt, userPrompt);
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       if (hasOpenCode) {
         console.warn(
           `[AI Director] Gemini gagal (${msg}), beralih ke fallback OpenCode Go...`
         );
-        return generateWithOpenCode(systemPrompt, userPrompt);
+        bp = await generateWithOpenCode(systemPrompt, userPrompt);
+      } else {
+        console.warn(
+          `[AI Director] Gemini gagal dan OPENCODE_API_KEY belum ada di .env, fallback tidak aktif.`
+        );
+        throw err;
       }
-      console.warn(
-        `[AI Director] Gemini gagal dan OPENCODE_API_KEY belum ada di .env, fallback tidak aktif.`
-      );
-      throw err;
     }
-  }
-
-  if (hasOpenCode) {
+  } else if (hasOpenCode) {
     console.log("[AI Director] GEMINI_API_KEY kosong, menggunakan OpenCode Go...");
-    return generateWithOpenCode(systemPrompt, userPrompt);
+    bp = await generateWithOpenCode(systemPrompt, userPrompt);
+  } else {
+    throw new Error(
+      "GEMINI_API_KEY dan OPENCODE_API_KEY belum diisi di .env. Jalankan dengan --mock untuk testing tanpa API key."
+    );
   }
 
-  throw new Error(
-    "GEMINI_API_KEY dan OPENCODE_API_KEY belum diisi di .env. Jalankan dengan --mock untuk testing tanpa API key."
-  );
+  return applySeriesDefaults(bp, series);
+}
+
+function applySeriesDefaults(
+  bp: ContentBlueprint,
+  series?: SeriesPreset
+): ContentBlueprint {
+  const cfg = getSeriesPreset(series);
+  const pattern = cfg.defaultLayoutPattern;
+  return {
+    ...bp,
+    series: series || bp.series || "edukasi",
+    videoTransition: bp.videoTransition || cfg.defaultTransition,
+    scenes: bp.scenes.map((scene, idx) => ({
+      ...scene,
+      layout:
+        scene.layout ||
+        (scene.role === "cover"
+          ? "editorial"
+          : scene.role === "cta"
+            ? pattern[pattern.length - 1]
+            : pattern[idx % pattern.length]),
+    })),
+  };
 }
 
 function isConfigured(val: string | undefined, placeholder: string): boolean {

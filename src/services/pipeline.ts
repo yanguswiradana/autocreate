@@ -544,6 +544,9 @@ function writeJobManifest(jobDir: string, blueprint: ContentBlueprint): OutputMa
 }
 
 async function remoteUrlToDataUri(url: string): Promise<string | undefined> {
+  if (url.startsWith("data:")) {
+    return url;
+  }
   try {
     const res = await fetch(url);
     if (!res.ok) return undefined;

@@ -72,22 +72,45 @@ export function ChatHarnessStudio() {
   const brandkitHydratedRef = useRef(false);
 
   useEffect(() => {
-    try {
-      const raw = window.localStorage.getItem("autocreate_brandkit_v1");
-      if (raw) {
-        const parsed = JSON.parse(raw);
-        if (parsed && typeof parsed === "object") {
-          setDraft((prev) => ({
-            ...prev,
-            brandkit: { ...prev.brandkit, ...parsed },
-          }));
+    let active = true;
+    (async () => {
+      try {
+        const res = await fetch("/api/brandkit", { cache: "no-store" });
+        if (res.ok) {
+          const data = await res.json();
+          if (active && data?.persisted && data.brandkit) {
+            setDraft((prev) => ({
+              ...prev,
+              brandkit: { ...prev.brandkit, ...data.brandkit },
+            }));
+            brandkitHydratedRef.current = true;
+            return;
+          }
         }
+      } catch {
+        // fallback to localStorage below
       }
-    } catch {
-      // ignore invalid stored brandkit
-    } finally {
-      brandkitHydratedRef.current = true;
-    }
+
+      try {
+        const raw = window.localStorage.getItem("autocreate_brandkit_v1");
+        if (raw && active) {
+          const parsed = JSON.parse(raw);
+          if (parsed && typeof parsed === "object") {
+            setDraft((prev) => ({
+              ...prev,
+              brandkit: { ...prev.brandkit, ...parsed },
+            }));
+          }
+        }
+      } catch {
+        // ignore invalid stored brandkit
+      } finally {
+        brandkitHydratedRef.current = true;
+      }
+    })();
+    return () => {
+      active = false;
+    };
   }, []);
 
   useEffect(() => {

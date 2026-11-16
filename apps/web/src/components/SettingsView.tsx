@@ -53,6 +53,51 @@ export function SettingsView({
   const [healthResult, setHealthResult] = useState<string | null>(null);
   const [checkingHealth, setCheckingHealth] = useState(false);
 
+  const [savingBrandkit, setSavingBrandkit] = useState(false);
+  const [brandkitFeedback, setBrandkitFeedback] = useState<{ ok: boolean; text: string } | null>(null);
+
+  const handleSaveBrandkit = async () => {
+    setSavingBrandkit(true);
+    setBrandkitFeedback(null);
+    try {
+      const res = await fetch("/api/brandkit", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(draft.brandkit),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || data.error || "Gagal menyimpan Brandkit");
+      setBrandkitFeedback({ ok: true, text: "Brandkit tersimpan di PostgreSQL." });
+    } catch (err) {
+      setBrandkitFeedback({
+        ok: false,
+        text: err instanceof Error ? err.message : "Gagal menyimpan Brandkit",
+      });
+    } finally {
+      setSavingBrandkit(false);
+    }
+  };
+
+  const handleResetBrandkit = async () => {
+    setSavingBrandkit(true);
+    setBrandkitFeedback(null);
+    try {
+      await fetch("/api/brandkit", { method: "DELETE" });
+      onUpdateDraft((prev) => ({
+        ...prev,
+        brandkit: DEFAULT_BRANDKIT_CONFIG,
+      }));
+      setBrandkitFeedback({ ok: true, text: "Brandkit direset ke default." });
+    } catch {
+      onUpdateDraft((prev) => ({
+        ...prev,
+        brandkit: DEFAULT_BRANDKIT_CONFIG,
+      }));
+    } finally {
+      setSavingBrandkit(false);
+    }
+  };
+
   const loadProviderKeys = useCallback(async () => {
     try {
       const res = await fetch("/api/provider-keys", { cache: "no-store" });
@@ -524,7 +569,7 @@ export function SettingsView({
                     Input Brandkit Studio
                   </h3>
                   <p className="text-xs text-[#a1a1aa]">
-                    Simpan identitas brand (nama, handle, warna, font, logo, dan tone) di sini. Tersimpan otomatis di browser dan ikut dikirim pada payload <code className="text-[#ddf77b]">options.brandkit</code> saat aktif.
+                    Simpan identitas brand (nama, handle, warna, font, logo, dan tone) ke PostgreSQL. Saat aktif, otomatis diterapkan ke Renderer (slide/poster/video) dan watermark Video Editor.
                   </p>
                 </div>
                 <button
@@ -783,18 +828,33 @@ export function SettingsView({
                   </div>
                 </div>
 
-                <button
-                  type="button"
-                  onClick={() =>
-                    onUpdateDraft((prev) => ({
-                      ...prev,
-                      brandkit: DEFAULT_BRANDKIT_CONFIG,
-                    }))
-                  }
-                  className="rounded-lg border border-white/10 bg-[#1a1a1f] px-3 py-2 text-xs text-[#a1a1aa] hover:border-white/25 hover:text-white"
-                >
-                  Reset Brandkit
-                </button>
+                <div className="flex flex-wrap items-center gap-2">
+                  {brandkitFeedback && (
+                    <span
+                      className={`text-xs ${
+                        brandkitFeedback.ok ? "text-[#ddf77b]" : "text-red-300"
+                      }`}
+                    >
+                      {brandkitFeedback.text}
+                    </span>
+                  )}
+                  <button
+                    type="button"
+                    disabled={savingBrandkit}
+                    onClick={handleResetBrandkit}
+                    className="rounded-lg border border-white/10 bg-[#1a1a1f] px-3 py-2 text-xs text-[#a1a1aa] hover:border-white/25 hover:text-white disabled:opacity-50"
+                  >
+                    Reset Brandkit
+                  </button>
+                  <button
+                    type="button"
+                    disabled={savingBrandkit}
+                    onClick={handleSaveBrandkit}
+                    className="rounded-lg bg-[#ddf77b] px-4 py-2 text-xs font-bold text-[#181824] hover:opacity-90 disabled:opacity-50"
+                  >
+                    {savingBrandkit ? "Menyimpan..." : "Simpan ke Database"}
+                  </button>
+                </div>
               </div>
             </div>
           </div>

@@ -33,6 +33,8 @@ class ProcessOptions(BaseModel):
     autoSubtitle: bool = False
     language: str = "id"
     hookText: Optional[str] = None
+    watermarkText: Optional[str] = None
+    brandColor: Optional[str] = None
 
 
 class ProcessRequest(BaseModel):
@@ -304,6 +306,12 @@ def escape_drawtext(text: str) -> str:
     )
 
 
+def safe_hex_color(color: Optional[str], fallback: str = "#ddf77b") -> str:
+    if color and re.fullmatch(r"#[0-9a-fA-F]{6}", color.strip()):
+        return color.strip()
+    return fallback
+
+
 def finalize_video(
     src: str,
     dst: str,
@@ -311,8 +319,11 @@ def finalize_video(
     bg_mask: str,
     hook_text: Optional[str],
     ass_path: Optional[Path],
+    watermark_text: Optional[str] = None,
+    brand_color: Optional[str] = None,
 ) -> None:
     vf_filters: list[str] = []
+    accent = safe_hex_color(brand_color)
 
     if bg_mask == "green_screen":
         vf_filters.append("chromakey=0x00FF00:0.18:0.08")
@@ -331,8 +342,16 @@ def finalize_video(
         safe_hook = escape_drawtext(hook_text.strip())
         vf_filters.append(
             "drawtext=fontfile=/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf:"
-            f"text='{safe_hook}':fontcolor=#ddf77b:fontsize=46:box=1:boxcolor=black@0.72:boxborderw=18:"
+            f"text='{safe_hook}':fontcolor={accent}:fontsize=46:box=1:boxcolor=black@0.72:boxborderw=18:"
             "x=(w-text_w)/2:y=110"
+        )
+
+    if watermark_text and watermark_text.strip():
+        safe_wm = escape_drawtext(watermark_text.strip())
+        vf_filters.append(
+            "drawtext=fontfile=/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf:"
+            f"text='{safe_wm}':fontcolor={accent}@0.88:fontsize=28:box=1:boxcolor=black@0.45:boxborderw=10:"
+            "x=w-tw-36:y=36"
         )
 
     cmd = ["ffmpeg", "-y", "-i", src]
@@ -390,6 +409,8 @@ def process_video(req: ProcessRequest):
             opts.bgMask,
             opts.hookText,
             ass_path,
+            opts.watermarkText,
+            opts.brandColor,
         )
 
     return {

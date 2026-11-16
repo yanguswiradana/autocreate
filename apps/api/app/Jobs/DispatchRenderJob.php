@@ -2,6 +2,7 @@
 
 namespace App\Jobs;
 
+use App\Models\Brandkit;
 use App\Models\ContentJob;
 use App\Models\ProviderKey;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -39,6 +40,7 @@ class DispatchRenderJob implements ShouldQueue
 
         $options = $job->options ?? [];
         $byokKeys = ProviderKey::activeMap();
+        $brandkitPayload = $this->resolveBrandkitPayload($options['brandkit'] ?? null);
 
         try {
             $response = Http::timeout(300)->post("{$rendererUrl}/api/jobs", [
@@ -59,7 +61,7 @@ class DispatchRenderJob implements ShouldQueue
                     'customSceneImages' => $options['customSceneImages'] ?? null,
                     'apiKeys' => $byokKeys ?: null,
                 ],
-                'brandkit' => $options['brandkit'] ?? null,
+                'brandkit' => $brandkitPayload,
                 'webhookUrl' => "{$apiInternalUrl}/api/webhooks/render/{$job->id}",
             ]);
 
@@ -93,5 +95,43 @@ class DispatchRenderJob implements ShouldQueue
                 'duration_ms' => (int) $startedAt->diffInMilliseconds($finishedAt),
             ]);
         }
+    }
+
+    private function resolveBrandkitPayload(mixed $optionBrandkit): ?array
+    {
+        $source = is_array($optionBrandkit) ? $optionBrandkit : null;
+
+        if ($source === null) {
+            $stored = Brandkit::query()->first();
+            if ($stored && $stored->enabled) {
+                $source = $stored->toApiArray();
+            }
+        } elseif (array_key_exists('enabled', $source) && !$source['enabled']) {
+            return null;
+        }
+
+        if (!$source) {
+            return null;
+        }
+
+        // If already in renderer BrandkitOverride or brandkit-sistem format, pass through
+        if (isset($source['brandTag']) || isset($source['identity']) || isset($source['logo_url'])) {
+            return $source;
+        }
+
+        $mapped = array_filter([
+            'brandName' => !empty($source['brandName']) ? (string) $source['brandName'] : null,
+            'brandTag' => !empty($source['handle']) ? (string) $source['handle'] : null,
+            'description' => !empty($source['tagline']) ? (string) $source['tagline'] : null,
+            'accentColor' => !empty($source['primaryColor']) ? (string) $source['primaryColor'] : null,
+            'bgPrimary' => !empty($source['secondaryColor']) ? (string) $source['secondaryColor'] : null,
+            'textPrimary' => !empty($source['accentColor']) ? (string) $source['accentColor'] : null,
+            'fontDisplay' => !empty($source['fontFamily']) ? (string) $source['fontFamily'] : null,
+            'fontBody' => !empty($source['fontFamily']) ? (string) $source['fontFamily'] : null,
+            'logoUrl' => !empty($source['logoDataUrl']) ? (string) $source['logoDataUrl'] : null,
+            'brandVoice' => !empty($source['notes']) ? (string) $source['notes'] : null,
+        ], fn ($v) => $v !== null && $v !== '');
+
+        return $mapped !== [] ? $mapped : null;
     }
 }

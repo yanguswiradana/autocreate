@@ -2,6 +2,7 @@
 
 namespace App\Jobs;
 
+use App\Models\Brandkit;
 use App\Models\VideoEdit;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
@@ -40,10 +41,22 @@ class ProcessVideoEditJob implements ShouldQueue
         $outputFullPath = "{$mediaRoot}/{$outputRelPath}";
 
         try {
+            $options = $edit->options ?? [];
+            $brandkit = Brandkit::query()->first();
+            if ($brandkit && $brandkit->enabled) {
+                $watermark = trim((string) ($brandkit->handle ?: $brandkit->brand_name ?: ''));
+                if ($watermark !== '') {
+                    $options['watermarkText'] = $watermark;
+                }
+                if (!empty($brandkit->primary_color)) {
+                    $options['brandColor'] = (string) $brandkit->primary_color;
+                }
+            }
+
             $res = Http::timeout(580)->post("{$videoAiUrl}/process", [
                 'inputPath' => $inputFullPath,
                 'outputPath' => $outputFullPath,
-                'options' => $edit->options ?? [],
+                'options' => $options,
             ]);
 
             if ($res->failed()) {

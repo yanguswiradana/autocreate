@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\BrandkitController;
 use App\Http\Controllers\ContentJobController;
 use App\Http\Controllers\ProviderKeyController;
 use App\Http\Controllers\VideoEditController;
@@ -30,3 +31,7 @@ Route::post('/video-edits', [VideoEditController::class, 'store']);
 Route::get('/video-edits/{id}', [VideoEditController::class, 'show']);
 Route::get('/video-edits/{id}/download', [VideoEditController::class, 'download']);
 Route::delete('/video-edits/{id}', [VideoEditController::class, 'destroy']);
+
+Route::get('/brandkit', [BrandkitController::class, 'show']);
+Route::put('/brandkit', [BrandkitController::class, 'update']);
+Route::delete('/brandkit', [BrandkitController::class, 'destroy']);

@@ -255,7 +255,7 @@ class ContentJobController extends Controller
             $aspectRatio = '4:5';
         }
         if (preg_match('/(background|backgroud|latar|gambar|foto|ilustrasi|visual)/i', $lower)) {
-            $visualProvider = 'pollinations';
+            $visualProvider = 'wikimedia';
         }
 
         if (count($urls) > 0) {
@@ -272,7 +272,7 @@ class ContentJobController extends Controller
                 'suggestedSeries' => null,
                 'assistantReply' => 'Oke, saya tangkap Anda ingin mengolah link referensi tersebut'
                     . ($outputs ? ' menjadi format ' . implode(', ', $outputs) . ($aspectRatio ? " ({$aspectRatio})" : '') : '')
-                    . ($visualProvider ? ' dengan latar AI otomatis' : '')
+                    . ($visualProvider ? ' dengan pencarian foto internet (Wikimedia)' : '')
                     . '. Saya baca isi linknya dulu ya.',
                 'source' => 'heuristic',
             ];
@@ -305,7 +305,7 @@ class ContentJobController extends Controller
             'suggestedSeries' => null,
             'assistantReply' => 'Siap, saya arahkan ke brief topik "' . ($cleaned !== '' ? $cleaned : $textOnly) . '"'
                 . ($outputs ? ' dengan format ' . implode(', ', $outputs) . ($aspectRatio ? " ({$aspectRatio})" : '') : '')
-                . ($visualProvider ? ' dan latar AI otomatis' : '')
+                . ($visualProvider ? ' dan pencarian foto internet (Wikimedia)' : '')
                 . '. Silakan pilih opsi detail di bawah.',
             'source' => 'heuristic',
         ];

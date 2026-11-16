@@ -242,6 +242,7 @@ export const SLIDE_COUNTS = [3, 5, 7, 10] as const;
 
 export const VISUAL_PROVIDERS = [
   { id: "procedural", label: "Procedural (Cepat)" },
+  { id: "wikimedia", label: "Cari Foto Internet (Wikimedia)" },
   { id: "pollinations", label: "Pollinations AI" },
   { id: "gemini", label: "Gemini Imagen" },
 ] as const;

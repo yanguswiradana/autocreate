@@ -37,18 +37,24 @@ class ContentJobController extends Controller
         return response()->json(['job' => $job]);
     }
 
-    public function store(Request $request): JsonResponse
+    private function sharedJobRules(): array
     {
-        $validated = $request->validate([
-            'topic' => ['nullable', 'string', 'max:500'],
+        return [
             'preset' => ['nullable', 'string', 'in:noir_editorial,midnight_tech,monochrome_luxury,warm_cinematic,neon_cyber,clean_paper'],
             'series' => ['nullable', 'string', 'in:edukasi,fakta_cepat,storytelling,promo_brand'],
             'aspectRatio' => ['nullable', 'string', 'in:4:5,1:1,9:16,16:9'],
             'language' => ['nullable', 'string', 'in:id,en'],
             'outputs' => ['nullable', 'array', 'min:1'],
-            'referenceUrls' => ['nullable', 'array', 'max:4'],
             'options' => ['nullable', 'array'],
-        ]);
+        ];
+    }
+
+    public function store(Request $request): JsonResponse
+    {
+        $validated = $request->validate(array_merge([
+            'topic' => ['nullable', 'string', 'max:500'],
+            'referenceUrls' => ['nullable', 'array', 'max:4'],
+        ], $this->sharedJobRules()));
 
         $topic = trim((string) ($validated['topic'] ?? ''));
         $refUrls = array_values(array_filter($validated['referenceUrls'] ?? []));
@@ -79,16 +85,10 @@ class ContentJobController extends Controller
 
     public function batch(Request $request): JsonResponse
     {
-        $validated = $request->validate([
+        $validated = $request->validate(array_merge([
             'topics' => ['required', 'array', 'min:1', 'max:20'],
             'topics.*' => ['required', 'string', 'max:500'],
-            'preset' => ['nullable', 'string'],
-            'series' => ['nullable', 'string'],
-            'aspectRatio' => ['nullable', 'string'],
-            'language' => ['nullable', 'string'],
-            'outputs' => ['nullable', 'array', 'min:1'],
-            'options' => ['nullable', 'array'],
-        ]);
+        ], $this->sharedJobRules()));
 
         $batchId = 'batch_' . Str::lower(Str::random(10));
         $created = [];

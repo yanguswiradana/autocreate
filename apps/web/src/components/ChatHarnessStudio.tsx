@@ -470,6 +470,17 @@ export function ChatHarnessStudio() {
     const effectiveSlides =
       cfg.outputs.length === 1 && cfg.outputs[0] === "poster" ? 1 : cfg.slides;
 
+    const jobOptions = {
+      slides: effectiveSlides,
+      mock: cfg.mock,
+      visualProvider: cfg.visualProvider,
+      customSceneImages:
+        Object.keys(cfg.customSceneImages).length > 0
+          ? cfg.customSceneImages
+          : undefined,
+      brandkit: cfg.brandkit.enabled ? cfg.brandkit : undefined,
+    };
+
     try {
       if (cfg.isBatch) {
         const topics = cfg.topic
@@ -486,16 +497,7 @@ export function ChatHarnessStudio() {
             aspectRatio: cfg.aspectRatio,
             language: cfg.language,
             outputs: cfg.outputs,
-            options: {
-              slides: effectiveSlides,
-              mock: cfg.mock,
-              visualProvider: cfg.visualProvider,
-              customSceneImages:
-                Object.keys(cfg.customSceneImages).length > 0
-                  ? cfg.customSceneImages
-                  : undefined,
-              brandkit: cfg.brandkit.enabled ? cfg.brandkit : undefined,
-            },
+            options: jobOptions,
           }),
         });
         const data = await res.json();
@@ -520,16 +522,7 @@ export function ChatHarnessStudio() {
             language: cfg.language,
             outputs: cfg.outputs,
             referenceUrls: cfg.referenceUrls,
-            options: {
-              slides: effectiveSlides,
-              mock: cfg.mock,
-              visualProvider: cfg.visualProvider,
-              customSceneImages:
-                Object.keys(cfg.customSceneImages).length > 0
-                  ? cfg.customSceneImages
-                  : undefined,
-              brandkit: cfg.brandkit.enabled ? cfg.brandkit : undefined,
-            },
+            options: jobOptions,
           }),
         });
         const data = await res.json();

@@ -313,7 +313,13 @@ export function ChatHarnessStudio() {
     setStep("awaiting_config");
   };
 
-  const checkUrlsAndAdvance = async (urls: string[], cleanTopic: string, isBatch: boolean) => {
+  const checkUrlsAndAdvance = async (
+    urls: string[],
+    cleanTopic: string,
+    isBatch: boolean,
+    instructionText?: string,
+    fallbackSlugTopic?: string
+  ) => {
     setBusyHint("Mengecek & mengekstrak URL referensi...");
     let results: RefCheckResult[] = [];
     try {
@@ -332,15 +338,18 @@ export function ChatHarnessStudio() {
     }
 
     const extractedTitle = results.find((r) => r.ok && r.title)?.title || "";
-    const derivedTopic = extractedTitle
-      ? cleanTopic
-        ? `${extractedTitle} (Arahan: ${cleanTopic})`
-        : extractedTitle
-      : cleanTopic;
+    const derivedTopic =
+      extractedTitle ||
+      fallbackSlugTopic ||
+      cleanTopic ||
+      "Ringkasan Referensi";
+    const derivedInstruction =
+      instructionText?.trim() || (extractedTitle && cleanTopic ? cleanTopic : "");
 
     setDraft((prev) => ({
       ...prev,
       topic: derivedTopic,
+      instruction: derivedInstruction || prev.instruction,
       isBatch,
       referenceUrls: urls,
       refResults: results,
@@ -412,6 +421,7 @@ export function ChatHarnessStudio() {
         instruction?: string;
         suggestedOutputs?: string[] | null;
         suggestedAspectRatio?: string | null;
+        suggestedVisualProvider?: string | null;
         suggestedSeries?: string | null;
         assistantReply?: string;
         source?: string;
@@ -442,6 +452,7 @@ export function ChatHarnessStudio() {
               ? intentData.suggestedOutputs
               : prev.outputs,
           aspectRatio: intentData?.suggestedAspectRatio || prev.aspectRatio,
+          visualProvider: intentData?.suggestedVisualProvider || prev.visualProvider,
           series: intentData?.suggestedSeries || prev.series,
         }));
 
@@ -474,14 +485,22 @@ export function ChatHarnessStudio() {
           });
         }
         const instr = intentData?.instruction || raw.replace(/https?:\/\/[^\s]+/gi, "").trim();
-        await checkUrlsAndAdvance(detectedUrls, instr, false);
+        await checkUrlsAndAdvance(
+          detectedUrls,
+          intentData?.cleanTopic || "",
+          false,
+          instr,
+          intentData?.cleanTopic || ""
+        );
         return;
       }
 
       const finalTopic = intentData?.cleanTopic?.trim() || raw;
+      const finalInstruction = intentData?.instruction?.trim() || "";
       setDraft((prev) => ({
         ...prev,
         topic: finalTopic,
+        instruction: finalInstruction,
         isBatch: false,
       }));
       pushMessages({
@@ -498,18 +517,22 @@ export function ChatHarnessStudio() {
       return;
     }
 
-    // In awaiting_config or awaiting_confirm, treat text as topic/brief refinement
+    if (step === "generating" || step === "completed") {
+      return;
+    }
+
+    // In awaiting_config or awaiting_confirm, treat text as arahan/revisi brief (not overwriting topic)
     pushMessages({ id: uid(), from: "user", text: raw });
     setComposerText("");
     setDraft((prev) => ({
       ...prev,
-      topic: prev.topic ? `${prev.topic} — ${raw}` : raw,
+      instruction: prev.instruction ? `${prev.instruction}; ${raw}` : raw,
     }));
     pushMessages({
       id: uid(),
       from: "ai",
-      title: "Brief Diperbarui",
-      text: "Catatan tambahan sudah dimasukkan ke brief. Silakan tinjau ringkasan dan klik Generate.",
+      title: "Arahan Brief Diperbarui",
+      text: "Arahan tambahan sudah dicatat terpisah dari topik. Silakan tinjau ringkasan dan klik Gas Generate Sekarang.",
       kind: "confirm_card",
     });
     setStep("awaiting_confirm");
@@ -564,6 +587,7 @@ export function ChatHarnessStudio() {
       slides: effectiveSlides,
       mock: cfg.mock,
       visualProvider: cfg.visualProvider,
+      instruction: cfg.instruction.trim() || undefined,
       customSceneImages:
         Object.keys(cfg.customSceneImages).length > 0
           ? cfg.customSceneImages
@@ -722,7 +746,16 @@ export function ChatHarnessStudio() {
     await loadJobs();
   };
 
+  const isComposerLocked =
+    step === "generating" || step === "completed" || Boolean(busyHint);
+
   const composerPlaceholder = useMemo(() => {
+    if (step === "generating") {
+      return "Sedang merender di background... Preview akan muncul otomatis.";
+    }
+    if (step === "completed") {
+      return "Selesai! Klik 'Chat baru' di sidebar kiri untuk membuat konten baru.";
+    }
     if (step === "awaiting_brief") {
       if (draft.mode === "link") return "Tempel URL berita/artikel (https://...) lalu tekan Enter...";
       if (draft.mode === "remix") return "Pilih proyek lewat @ atau ketik arahan remix...";
@@ -731,10 +764,10 @@ export function ChatHarnessStudio() {
         : "Tulis topik atau ide konten yang ingin dibuat...";
     }
     if (step === "awaiting_config") {
-      return "Pilih opsi di kartu atas, atau ketik catatan tambahan untuk brief...";
+      return "Pilih opsi di kartu atas, atau ketik arahan revisi gaya (opsional)...";
     }
     if (step === "awaiting_confirm") {
-      return "Klik Gas Generate di kartu atas, atau ketik revisi brief...";
+      return "Klik Gas Generate di kartu atas, atau ketik arahan tambahan...";
     }
     return "Jelaskan konten yang mau dibuat atau tempel link referensi...";
   }, [step, draft.mode, draft.isBatch]);
@@ -1627,6 +1660,14 @@ export function ChatHarnessStudio() {
                                         {draft.topic || "(Dari Link Referensi)"}
                                       </b>
                                     </div>
+                                    {draft.instruction && (
+                                      <div>
+                                        <span className="block text-[10.5px] text-[#63636b]">Arahan</span>
+                                        <b className="line-clamp-2 font-medium text-[#ddf77b]">
+                                          {draft.instruction}
+                                        </b>
+                                      </div>
+                                    )}
                                     <div>
                                       <span className="block text-[10.5px] text-[#63636b]">Output &amp; Rasio</span>
                                       <b className="font-medium text-[#f4f4f5]">
@@ -1842,6 +1883,7 @@ export function ChatHarnessStudio() {
                   <textarea
                     ref={textareaRef}
                     rows={draft.isBatch ? 3 : 1}
+                    disabled={isComposerLocked}
                     value={composerText}
                     onChange={(e) => setComposerText(e.target.value)}
                     onKeyDown={(e) => {
@@ -1851,7 +1893,7 @@ export function ChatHarnessStudio() {
                       }
                     }}
                     placeholder={composerPlaceholder}
-                    className="max-h-40 w-full resize-none bg-transparent text-[14px] text-[#f4f4f5] placeholder-[#63636b] outline-none"
+                    className="max-h-40 w-full resize-none bg-transparent text-[14px] text-[#f4f4f5] placeholder-[#63636b] outline-none disabled:cursor-not-allowed disabled:opacity-50"
                   />
 
                   <div className="mt-2 flex flex-wrap items-center justify-between gap-2">

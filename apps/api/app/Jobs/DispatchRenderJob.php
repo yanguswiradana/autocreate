@@ -60,6 +60,7 @@ class DispatchRenderJob implements ShouldQueue
                     'bgm' => $options['bgm'] ?? null,
                     'bgmVolume' => $options['bgmVolume'] ?? null,
                     'customSceneImages' => $options['customSceneImages'] ?? null,
+                    'instruction' => $options['instruction'] ?? null,
                     'apiKeys' => $byokKeys ?: null,
                     'aiModels' => $byokModels ?: null,
                 ],

@@ -30,6 +30,7 @@ export interface GenerateBlueprintOptions {
     gemini?: string;
     opencode?: string;
   };
+  userInstruction?: string;
 }
 
 type AiProviderMode = "auto" | "gemini" | "opencode";
@@ -55,6 +56,7 @@ export async function generateBlueprint(
     mock = false,
     apiKeys,
     aiModels,
+    userInstruction,
   } = options;
 
   const seriesConfig = getSeriesPreset(series);
@@ -85,10 +87,14 @@ export async function generateBlueprint(
     ? `\nBahan Referensi / Sumber Berita Wajib (gunakan fakta, data, dan poin kunci dari sumber di bawah ini; jangan mengarang fakta di luar sumber):\n${referenceContext.trim()}\n`
     : "";
 
+  const instructionSection = userInstruction?.trim()
+    ? `\nArahan Khusus User (ikuti gaya/format yang diminta tanpa menyalin kalimat perintah ini sebagai judul):\n${userInstruction.trim()}\n`
+    : "";
+
   const systemPrompt = `Kamu adalah Creative Director untuk konten media sosial bertema "${theme.name}" (gelap, elegan, tajam, tidak klise).
 Tugasmu mengubah sebuah topik menjadi ContentBlueprint JSON dalam ${langLabel} yang siap dirender menjadi Multi-Slide Carousel DAN Short-Form Video.
 Seri / Gaya Konten: "${seriesConfig.name}" — ${seriesConfig.promptDirective}
-${brandSection}${referenceSection}
+${brandSection}${instructionSection}${referenceSection}
 Aturan ketat:
 1. Seluruh teks konten (hookTitle, subtitle, slideTitle, slideBody, narrationText, caption, hashtags) WAJIB ditulis dalam ${langLabel}.
 2. Total scenes = ${slideCount} (Scene 1 role="cover", Scene terakhir role="cta", sisanya role="content").

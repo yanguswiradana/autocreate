@@ -104,6 +104,7 @@ export interface BrandkitConfig {
 export interface DraftConfig {
   mode: StarterMode;
   topic: string;
+  instruction: string;
   isBatch: boolean;
   referenceUrls: string[];
   refResults: RefCheckResult[];
@@ -274,6 +275,7 @@ export const DEFAULT_BRANDKIT_CONFIG: BrandkitConfig = {
 export const DEFAULT_DRAFT_CONFIG: DraftConfig = {
   mode: "topic",
   topic: "",
+  instruction: "",
   isBatch: false,
   referenceUrls: [],
   refResults: [],

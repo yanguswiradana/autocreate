@@ -243,6 +243,7 @@ class ContentJobController extends Controller
 
         $outputs = null;
         $aspectRatio = null;
+        $visualProvider = null;
         if (preg_match('/\b(reels|tiktok|shorts|video)\b/i', $lower)) {
             $outputs = ['video'];
             $aspectRatio = '9:16';
@@ -253,19 +254,25 @@ class ContentJobController extends Controller
             $outputs = ['poster'];
             $aspectRatio = '4:5';
         }
+        if (preg_match('/(background|backgroud|latar|gambar|foto|ilustrasi|visual)/i', $lower)) {
+            $visualProvider = 'pollinations';
+        }
 
         if (count($urls) > 0) {
             $cleanInstr = trim((string) preg_replace('/^(aku mau |tolong |coba )?(bikin|buat|buatkan)\s+(konten\s+)?(feed|carousel|video|reels|poster)?\s*(dari\s+)?(berita|link|artikel)?\s*(ini)?/i', '', $textOnly));
+            $slugTopic = $this->slugTopicFromUrl($urls[0]);
             return [
                 'intent' => 'link_with_instruction',
                 'urls' => $urls,
-                'cleanTopic' => '',
+                'cleanTopic' => $slugTopic,
                 'instruction' => $cleanInstr ?: $textOnly,
                 'suggestedOutputs' => $outputs,
                 'suggestedAspectRatio' => $aspectRatio,
+                'suggestedVisualProvider' => $visualProvider,
                 'suggestedSeries' => null,
                 'assistantReply' => 'Oke, saya tangkap Anda ingin mengolah link referensi tersebut'
                     . ($outputs ? ' menjadi format ' . implode(', ', $outputs) . ($aspectRatio ? " ({$aspectRatio})" : '') : '')
+                    . ($visualProvider ? ' dengan latar AI otomatis' : '')
                     . '. Saya baca isi linknya dulu ya.',
                 'source' => 'heuristic',
             ];
@@ -279,6 +286,7 @@ class ContentJobController extends Controller
                 'instruction' => '',
                 'suggestedOutputs' => null,
                 'suggestedAspectRatio' => null,
+                'suggestedVisualProvider' => null,
                 'suggestedSeries' => null,
                 'assistantReply' => 'Siap! Untuk mulai membuat konten, Anda bisa tulis topik utamanya, tempel link berita + arahan (misal: "buatkan feed dari berita ini https://..."), atau klik @Remix untuk mengolah proyek lama.',
                 'source' => 'heuristic',
@@ -290,15 +298,33 @@ class ContentJobController extends Controller
             'intent' => 'topic_brief',
             'urls' => [],
             'cleanTopic' => $cleaned !== '' ? $cleaned : $textOnly,
-            'instruction' => $textOnly,
+            'instruction' => '',
             'suggestedOutputs' => $outputs,
             'suggestedAspectRatio' => $aspectRatio,
+            'suggestedVisualProvider' => $visualProvider,
             'suggestedSeries' => null,
             'assistantReply' => 'Siap, saya arahkan ke brief topik "' . ($cleaned !== '' ? $cleaned : $textOnly) . '"'
                 . ($outputs ? ' dengan format ' . implode(', ', $outputs) . ($aspectRatio ? " ({$aspectRatio})" : '') : '')
+                . ($visualProvider ? ' dan latar AI otomatis' : '')
                 . '. Silakan pilih opsi detail di bawah.',
             'source' => 'heuristic',
         ];
+    }
+
+    private function slugTopicFromUrl(string $url): string
+    {
+        $path = (string) parse_url($url, PHP_URL_PATH);
+        $segments = array_values(array_filter(explode('/', trim($path, '/'))));
+        if (count($segments) === 0) {
+            return '';
+        }
+        $last = end($segments);
+        $last = (string) preg_replace('/\.(html?|php|aspx?)$/i', '', (string) $last);
+        $words = trim((string) preg_replace('/[-_]+/', ' ', $last));
+        if (mb_strlen($words) < 6) {
+            return '';
+        }
+        return ucwords($words);
     }
 
     private function classifyIntentWithAi(string $raw, array $urls): ?array

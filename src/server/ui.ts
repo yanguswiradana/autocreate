@@ -382,6 +382,7 @@ const server = http.createServer(async (req, res) => {
                 : Array.isArray(payload.referenceUrls)
                   ? payload.referenceUrls.map((u: unknown) => String(u)).filter(Boolean)
                   : undefined,
+              userInstruction: brief.instruction ? String(brief.instruction) : undefined,
               serveUrl,
             });
             return { result: dir, folderName: path.basename(dir) };

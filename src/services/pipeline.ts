@@ -52,6 +52,8 @@ export interface ContentJobOptions {
     gemini?: string;
     opencode?: string;
   };
+  /** Optional user direction / brief instruction separated from core topic */
+  userInstruction?: string;
 }
 
 export async function bundleRemotionProject(): Promise<string> {
@@ -132,6 +134,7 @@ export async function runContentJob(
     mock,
     apiKeys: options.apiKeys,
     aiModels: options.aiModels,
+    userInstruction: options.userInstruction,
   });
 
   fs.mkdirSync(jobDir, { recursive: true });

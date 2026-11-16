@@ -119,15 +119,32 @@ export interface DraftConfig {
   brandkit: BrandkitConfig;
 }
 
+export interface VideoReferenceAnalysis {
+  width: number;
+  height: number;
+  durationSeconds: number;
+  aspectRatio: string;
+  preset: string;
+  pacing: string;
+  recommendedSlides: number;
+  palette: {
+    primaryColor: string;
+    secondaryColor: string;
+    accentColor: string;
+  };
+  keyframes: string[];
+}
+
 export interface ChatMessage {
   id: string;
   from: "user" | "ai";
   title?: string;
   text: string;
   meta?: string;
-  kind?: "text" | "rss_picker" | "ref_status" | "config_card" | "confirm_card" | "job_progress";
+  kind?: "text" | "rss_picker" | "ref_status" | "video_ref" | "config_card" | "confirm_card" | "job_progress";
   rssTopics?: RssTopic[];
   refResults?: RefCheckResult[];
+  videoRef?: VideoReferenceAnalysis;
   jobId?: number;
 }
 
@@ -135,6 +152,9 @@ export const PRESET_OPTIONS = [
   { id: "noir_editorial", label: "Noir Editorial", desc: "Gelap kontras tinggi, aksen hangat, tipografi editorial." },
   { id: "midnight_tech", label: "Midnight Tech", desc: "Nuansa futuristik gelap dengan garis presisi modern." },
   { id: "monochrome_luxury", label: "Monochrome Luxury", desc: "Minimalis monokrom berkelas dengan ruang napas luas." },
+  { id: "warm_cinematic", label: "Warm Cinematic", desc: "Nuansa film hangat keemasan untuk storytelling & dokumenter." },
+  { id: "neon_cyber", label: "Neon Cyber", desc: "Gelap energik dengan aksen neon lime tajam & modern." },
+  { id: "clean_paper", label: "Clean Paper", desc: "Terang ala majalah editorial di atas kertas putih gading." },
 ] as const;
 
 export const SERIES_OPTIONS = [

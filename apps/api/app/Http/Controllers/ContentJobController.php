@@ -41,7 +41,7 @@ class ContentJobController extends Controller
     {
         $validated = $request->validate([
             'topic' => ['nullable', 'string', 'max:500'],
-            'preset' => ['nullable', 'string', 'in:noir_editorial,midnight_tech,monochrome_luxury'],
+            'preset' => ['nullable', 'string', 'in:noir_editorial,midnight_tech,monochrome_luxury,warm_cinematic,neon_cyber,clean_paper'],
             'series' => ['nullable', 'string', 'in:edukasi,fakta_cepat,storytelling,promo_brand'],
             'aspectRatio' => ['nullable', 'string', 'in:4:5,1:1,9:16,16:9'],
             'language' => ['nullable', 'string', 'in:id,en'],

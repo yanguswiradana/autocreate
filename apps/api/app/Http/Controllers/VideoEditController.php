@@ -6,6 +6,7 @@ use App\Jobs\ProcessVideoEditJob;
 use App\Models\VideoEdit;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Str;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
 
@@ -114,5 +115,42 @@ class VideoEditController extends Controller
 
         $edit->delete();
         return response()->json(['ok' => true]);
+    }
+
+    public function analyzeReference(Request $request): JsonResponse
+    {
+        $request->validate([
+            'video' => ['required', 'file', 'mimes:mp4,mov,webm,mkv', 'max:153600'],
+        ]);
+
+        $file = $request->file('video');
+        $ext = strtolower($file->getClientOriginalExtension() ?: 'mp4');
+        $tmpDir = $this->mediaRoot() . '/tmp';
+        if (!is_dir($tmpDir)) {
+            mkdir($tmpDir, 0775, true);
+        }
+
+        $filename = 'ref_' . now()->format('Ymd_His') . '_' . Str::random(8) . '.' . $ext;
+        $file->move($tmpDir, $filename);
+        $fullPath = "{$tmpDir}/{$filename}";
+
+        try {
+            $videoAiUrl = rtrim((string) env('VIDEO_AI_URL', 'http://video-ai:8090'), '/');
+            $res = Http::timeout(120)->post("{$videoAiUrl}/analyze-reference", [
+                'inputPath' => $fullPath,
+            ]);
+
+            if ($res->failed()) {
+                return response()->json([
+                    'error' => 'Gagal menganalisis video referensi: ' . $res->body(),
+                ], 502);
+            }
+
+            return response()->json($res->json());
+        } finally {
+            if (file_exists($fullPath)) {
+                @unlink($fullPath);
+            }
+        }
     }
 }

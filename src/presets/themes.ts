@@ -73,6 +73,60 @@ export const THEME_PRESETS: Record<PresetId, ThemePreset> = {
     overlayGradient:
       "linear-gradient(180deg, rgba(9,9,9,0.55) 0%, rgba(9,9,9,0.84) 55%, rgba(9,9,9,0.97) 100%)",
   },
+  warm_cinematic: {
+    id: "warm_cinematic",
+    name: "Warm Cinematic",
+    bgPrimary: "#120D0A",
+    bgSecondary: "#1D1510",
+    surface: "rgba(32, 22, 16, 0.78)",
+    textPrimary: "#FEF3C7",
+    textSecondary: "#D6B89C",
+    accent: "#F59E0B",
+    accentSoft: "rgba(245, 158, 11, 0.16)",
+    border: "rgba(245, 158, 11, 0.28)",
+    fontDisplay: "Georgia, 'Times New Roman', serif",
+    fontBody: "'Segoe UI', Roboto, Helvetica, Arial, sans-serif",
+    visualStyleAnchor:
+      "warm golden hour cinematic film photography, soft amber rim lighting, subtle 35mm film grain, rich earthy shadows, no text, no watermark",
+    overlayGradient:
+      "linear-gradient(180deg, rgba(18,13,10,0.48) 0%, rgba(18,13,10,0.8) 55%, rgba(18,13,10,0.96) 100%)",
+  },
+  neon_cyber: {
+    id: "neon_cyber",
+    name: "Neon Cyber",
+    bgPrimary: "#090612",
+    bgSecondary: "#130D24",
+    surface: "rgba(22, 14, 42, 0.8)",
+    textPrimary: "#F8FAFC",
+    textSecondary: "#A5B4FC",
+    accent: "#DDF77B",
+    accentSoft: "rgba(221, 247, 123, 0.16)",
+    border: "rgba(221, 247, 123, 0.3)",
+    fontDisplay: "'Segoe UI', Inter, system-ui, sans-serif",
+    fontBody: "'Segoe UI', Inter, system-ui, sans-serif",
+    visualStyleAnchor:
+      "high contrast cyber dark studio aesthetic, electric lime and subtle violet rim glow, sharp modern geometry, clean focal subject, no text, no watermark",
+    overlayGradient:
+      "linear-gradient(180deg, rgba(9,6,18,0.5) 0%, rgba(9,6,18,0.82) 55%, rgba(9,6,18,0.96) 100%)",
+  },
+  clean_paper: {
+    id: "clean_paper",
+    name: "Clean Paper",
+    bgPrimary: "#F7F4EE",
+    bgSecondary: "#EDE8DF",
+    surface: "rgba(255, 255, 255, 0.88)",
+    textPrimary: "#18181B",
+    textSecondary: "#52525B",
+    accent: "#DC2626",
+    accentSoft: "rgba(220, 38, 38, 0.12)",
+    border: "rgba(24, 24, 27, 0.14)",
+    fontDisplay: "Georgia, 'Times New Roman', serif",
+    fontBody: "'Segoe UI', Inter, system-ui, sans-serif",
+    visualStyleAnchor:
+      "bright minimalist daylight editorial photography, warm off-white paper aesthetic, crisp natural shadows, clean magazine composition, no text, no watermark",
+    overlayGradient:
+      "linear-gradient(180deg, rgba(247,244,238,0.35) 0%, rgba(247,244,238,0.78) 55%, rgba(247,244,238,0.95) 100%)",
+  },
 };
 
 export function getThemePreset(

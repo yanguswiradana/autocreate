@@ -4,6 +4,9 @@ export const PresetIdSchema = z.enum([
   "noir_editorial",
   "midnight_tech",
   "monochrome_luxury",
+  "warm_cinematic",
+  "neon_cyber",
+  "clean_paper",
 ]);
 
 export type PresetId = z.infer<typeof PresetIdSchema>;

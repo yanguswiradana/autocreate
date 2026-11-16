@@ -31,6 +31,7 @@ Route::post('/video-edits', [VideoEditController::class, 'store']);
 Route::get('/video-edits/{id}', [VideoEditController::class, 'show']);
 Route::get('/video-edits/{id}/download', [VideoEditController::class, 'download']);
 Route::delete('/video-edits/{id}', [VideoEditController::class, 'destroy']);
+Route::post('/analyze-reference', [VideoEditController::class, 'analyzeReference']);
 
 Route::get('/brandkit', [BrandkitController::class, 'show']);
 Route::put('/brandkit', [BrandkitController::class, 'update']);

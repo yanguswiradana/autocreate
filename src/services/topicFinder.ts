@@ -2,13 +2,13 @@ import fs from "node:fs";
 import path from "node:path";
 import { GoogleGenAI } from "@google/genai";
 import { z } from "zod";
-import { OutputTypeSchema, PresetIdSchema } from "../types/blueprint";
+import { OutputTypeSchema, PresetId, PresetIdSchema } from "../types/blueprint";
 
 export interface FeedsConfig {
   feeds: string[];
   count: number;
   nicheHint: string;
-  defaultPreset: "noir_editorial" | "midnight_tech" | "monochrome_luxury";
+  defaultPreset: PresetId;
   defaultOutputs: Array<"carousel" | "poster" | "raw_image" | "video">;
 }
 
@@ -124,7 +124,7 @@ export async function discoverTopics(options?: {
 }): Promise<
   Array<{
     topic: string;
-    preset: "noir_editorial" | "midnight_tech" | "monochrome_luxury";
+    preset: PresetId;
     outputs: Array<"carousel" | "poster" | "raw_image" | "video">;
     reason?: string;
   }>

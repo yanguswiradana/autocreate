@@ -1,3 +1,4 @@
+import base64
 import os
 import re
 import shutil
@@ -418,4 +419,146 @@ def process_video(req: ProcessRequest):
         "outputPath": req.outputPath,
         "transcript": transcript,
         "durationSeconds": round(probe_duration(req.outputPath), 2),
+    }
+
+
+class AnalyzeReferenceRequest(BaseModel):
+    inputPath: str
+
+
+def rgb_to_hex(rgb: tuple[int, int, int]) -> str:
+    return f"#{rgb[0]:02x}{rgb[1]:02x}{rgb[2]:02x}"
+
+
+def pick_aspect_ratio(width: int, height: int) -> str:
+    if width <= 0 or height <= 0:
+        return "9:16"
+    ratio = width / height
+    targets = {
+        "9:16": 9 / 16,
+        "4:5": 4 / 5,
+        "1:1": 1.0,
+        "16:9": 16 / 9,
+    }
+    return min(targets.keys(), key=lambda k: abs(targets[k] - ratio))
+
+
+@app.post("/analyze-reference")
+def analyze_reference(req: AnalyzeReferenceRequest):
+    if not os.path.exists(req.inputPath):
+        raise HTTPException(status_code=404, detail="Reference video file not found")
+
+    cap = cv2.VideoCapture(req.inputPath)
+    if not cap.isOpened():
+        raise HTTPException(status_code=400, detail="Cannot open reference video")
+
+    width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH) or 0)
+    height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT) or 0)
+    fps = float(cap.get(cv2.CAP_PROP_FPS) or 24.0)
+    frame_count = int(cap.get(cv2.CAP_PROP_FRAME_COUNT) or 0)
+    duration = round(frame_count / fps, 2) if fps > 0 and frame_count > 0 else round(probe_duration(req.inputPath), 2)
+
+    total_samples = 16
+    indices = (
+        [int(i * (frame_count - 1) / (total_samples - 1)) for i in range(total_samples)]
+        if frame_count >= total_samples
+        else list(range(max(frame_count, 1)))
+    )
+
+    keyframe_slots = {indices[i] for i in [1, 5, 10, 14] if i < len(indices)} if len(indices) >= 15 else set(indices[:4])
+    keyframes: list[str] = []
+    sampled_small: list[np.ndarray] = []
+    diffs: list[float] = []
+    prev_gray: Optional[np.ndarray] = None
+
+    for idx in indices:
+        cap.set(cv2.CAP_PROP_POS_FRAMES, idx)
+        ok, frame = cap.read()
+        if not ok or frame is None:
+            continue
+
+        small = cv2.resize(frame, (96, 96))
+        sampled_small.append(small)
+
+        gray = cv2.cvtColor(small, cv2.COLOR_BGR2GRAY)
+        if prev_gray is not None:
+            diffs.append(float(np.mean(np.abs(gray.astype(np.float32) - prev_gray.astype(np.float32)))))
+        prev_gray = gray
+
+        if idx in keyframe_slots and len(keyframes) < 4:
+            h, w = frame.shape[:2]
+            scale = min(1.0, 420.0 / max(w, 1))
+            thumb = cv2.resize(frame, (max(1, int(w * scale)), max(1, int(h * scale)))) if scale < 1.0 else frame
+            ok_jpg, enc = cv2.imencode(".jpg", thumb, [int(cv2.IMWRITE_JPEG_QUALITY), 80])
+            if ok_jpg:
+                keyframes.append("data:image/jpeg;base64," + base64.b64encode(enc.tobytes()).decode("ascii"))
+
+    cap.release()
+
+    if not sampled_small:
+        raise HTTPException(status_code=400, detail="Could not decode frames from reference video")
+
+    pixels_bgr = np.vstack([img.reshape(-1, 3) for img in sampled_small])
+    pixels_rgb = pixels_bgr[:, ::-1]
+    avg_rgb = np.mean(pixels_rgb, axis=0)
+    luma = float(0.299 * avg_rgb[0] + 0.587 * avg_rgb[1] + 0.114 * avg_rgb[2])
+
+    # Quantize to 24-step buckets to find dominant background & vibrant accent colors
+    quant = (pixels_rgb // 24) * 24 + 12
+    packed = (quant[:, 0].astype(np.int32) << 16) | (quant[:, 1].astype(np.int32) << 8) | quant[:, 2].astype(np.int32)
+    vals, counts = np.unique(packed, return_counts=True)
+    order = np.argsort(-counts)
+
+    top_colors: list[tuple[int, int, int, float]] = []
+    for pos in order[:20]:
+        c = int(vals[pos])
+        r, g, b = (c >> 16) & 255, (c >> 8) & 255, c & 255
+        sat = (max(r, g, b) - min(r, g, b)) / max(max(r, g, b), 1)
+        top_colors.append((r, g, b, sat))
+
+    bg_rgb = top_colors[0][:3]
+    accent_candidates = sorted(top_colors, key=lambda x: x[3], reverse=True)
+    primary_rgb = accent_candidates[0][:3] if accent_candidates and accent_candidates[0][3] > 0.18 else (221, 247, 123)
+    text_rgb = (24, 24, 27) if luma > 165 else (244, 244, 245)
+
+    avg_sat = float(np.mean([c[3] for c in top_colors[:5]])) if top_colors else 0.0
+    if luma > 165:
+        preset = "clean_paper"
+    elif avg_sat < 0.12:
+        preset = "monochrome_luxury"
+    elif avg_rgb[2] > avg_rgb[0] * 1.15 and avg_rgb[2] > avg_rgb[1]:
+        preset = "midnight_tech"
+    elif avg_rgb[1] > avg_rgb[0] and avg_sat > 0.35:
+        preset = "neon_cyber"
+    elif avg_rgb[0] > avg_rgb[2] * 1.18:
+        preset = "warm_cinematic"
+    else:
+        preset = "noir_editorial"
+
+    avg_diff = float(np.mean(diffs)) if diffs else 15.0
+    if avg_diff > 28.0:
+        pacing = "fast"
+        recommended_slides = 7
+    elif avg_diff > 14.0:
+        pacing = "medium"
+        recommended_slides = 5
+    else:
+        pacing = "calm"
+        recommended_slides = 3
+
+    return {
+        "ok": True,
+        "width": width,
+        "height": height,
+        "durationSeconds": duration,
+        "aspectRatio": pick_aspect_ratio(width, height),
+        "preset": preset,
+        "pacing": pacing,
+        "recommendedSlides": recommended_slides,
+        "palette": {
+            "primaryColor": rgb_to_hex(primary_rgb),
+            "secondaryColor": rgb_to_hex(bg_rgb),
+            "accentColor": rgb_to_hex(text_rgb),
+        },
+        "keyframes": keyframes,
     }

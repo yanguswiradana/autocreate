@@ -204,9 +204,10 @@ export function ChatHarnessStudio() {
       pushMessages({
         id: uid(),
         from: "ai",
-        title: "Langkah 1 · Tempel Link Referensi",
-        text: "Tempel 1 atau lebih URL berita/artikel di kolom chat bawah. Sistem akan mengekstrak isi link secara otomatis sebelum memilih format.",
-        meta: "guided-step-1 · cek link otomatis",
+        title: "Langkah 1 · Tempel Link atau Upload Video Referensi",
+        text: "Tempel 1+ URL berita/artikel di kolom chat bawah, ATAU upload klip video referensi (MP4/MOV) untuk mengekstrak palet warna, rasio, pacing, & preset visualnya.",
+        meta: "guided-step-1 · cek link / video referensi",
+        kind: "video_ref",
       });
     } else {
       pushMessages({
@@ -220,6 +221,44 @@ export function ChatHarnessStudio() {
     }
 
     setTimeout(() => textareaRef.current?.focus(), 60);
+  };
+
+  const handleAnalyzeReferenceVideo = async (file: File) => {
+    setBusyHint("Menganalisis gaya & palet video referensi...");
+    setErrorBanner(null);
+    try {
+      const fd = new FormData();
+      fd.append("video", file);
+      const res = await fetch("/api/analyze-reference", {
+        method: "POST",
+        body: fd,
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || data.message || "Gagal menganalisis video");
+
+      setDraft((prev) => ({
+        ...prev,
+        preset: data.preset || prev.preset,
+        aspectRatio: data.aspectRatio || prev.aspectRatio,
+        slides: data.recommendedSlides || prev.slides,
+      }));
+
+      pushMessages({
+        id: uid(),
+        from: "ai",
+        title: `Gaya Referensi Diekstrak (${file.name})`,
+        text: `Terdeteksi rasio ${data.aspectRatio}, pacing ${data.pacing} (${data.recommendedSlides} slide), dan preset cocok: ${data.preset}. Sekarang ketik topik kontenmu di chat bawah untuk lanjut!`,
+        meta: `${data.width}x${data.height} · ${data.durationSeconds}s`,
+        kind: "video_ref",
+        videoRef: data,
+      });
+    } catch (err) {
+      setErrorBanner(
+        err instanceof Error ? err.message : "Gagal menganalisis video referensi"
+      );
+    } finally {
+      setBusyHint(null);
+    }
   };
 
   const handleDiscoverRss = async () => {
@@ -1092,6 +1131,81 @@ export function ChatHarnessStudio() {
                                       </span>
                                     </div>
                                   ))}
+                                </div>
+                              )}
+
+                              {/* Video Reference Style Extractor */}
+                              {msg.kind === "video_ref" && !msg.videoRef && (
+                                <div className="pt-2">
+                                  <label className="inline-flex cursor-pointer items-center gap-2 rounded-lg border border-[#ddf77b]/40 bg-[#ddf77b]/10 px-3 py-1.5 text-xs font-semibold text-[#ddf77b] hover:bg-[#ddf77b]/20">
+                                    <span>Upload Video Referensi (MP4/MOV)</span>
+                                    <input
+                                      type="file"
+                                      accept="video/mp4,video/quicktime,video/webm"
+                                      className="hidden"
+                                      onChange={(e) => {
+                                        const f = e.target.files?.[0];
+                                        if (f) handleAnalyzeReferenceVideo(f);
+                                        e.target.value = "";
+                                      }}
+                                    />
+                                  </label>
+                                </div>
+                              )}
+
+                              {msg.kind === "video_ref" && msg.videoRef && (
+                                <div className="mt-2 space-y-2.5 rounded-xl border border-white/10 bg-[#1a1a1f] p-3">
+                                  {msg.videoRef.keyframes.length > 0 && (
+                                    <div className="grid grid-cols-4 gap-1.5">
+                                      {msg.videoRef.keyframes.map((kf, idx) => (
+                                        <img
+                                          key={idx}
+                                          src={kf}
+                                          alt={`Keyframe ${idx + 1}`}
+                                          className="h-16 w-full rounded-md border border-white/10 object-cover"
+                                        />
+                                      ))}
+                                    </div>
+                                  )}
+                                  <div className="flex flex-wrap items-center justify-between gap-2 text-[11px]">
+                                    <div className="flex items-center gap-1.5">
+                                      {[
+                                        msg.videoRef.palette.primaryColor,
+                                        msg.videoRef.palette.secondaryColor,
+                                        msg.videoRef.palette.accentColor,
+                                      ].map((hex, idx) => (
+                                        <span
+                                          key={idx}
+                                          className="inline-flex items-center gap-1 rounded border border-white/10 bg-[#131316] px-1.5 py-0.5 font-mono text-[#d4d4d8]"
+                                        >
+                                          <span
+                                            className="h-2.5 w-2.5 rounded-full border border-white/20"
+                                            style={{ backgroundColor: hex }}
+                                          />
+                                          {hex}
+                                        </span>
+                                      ))}
+                                    </div>
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        const p = msg.videoRef!.palette;
+                                        setDraft((prev) => ({
+                                          ...prev,
+                                          brandkit: {
+                                            ...prev.brandkit,
+                                            enabled: true,
+                                            primaryColor: p.primaryColor,
+                                            secondaryColor: p.secondaryColor,
+                                            accentColor: p.accentColor,
+                                          },
+                                        }));
+                                      }}
+                                      className="rounded-md bg-[#ddf77b] px-2.5 py-1 text-[11px] font-bold text-[#181824] hover:opacity-90"
+                                    >
+                                      Terapkan Warna ke Brandkit
+                                    </button>
+                                  </div>
                                 </div>
                               )}
 

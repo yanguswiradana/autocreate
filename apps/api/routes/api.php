@@ -13,6 +13,7 @@ Route::post('/jobs', [ContentJobController::class, 'store']);
 Route::get('/jobs/{id}', [ContentJobController::class, 'show']);
 Route::delete('/jobs/{id}', [ContentJobController::class, 'destroy']);
 Route::post('/jobs/{id}/rerender', [ContentJobController::class, 'rerender']);
+Route::post('/jobs/{id}/retry', [ContentJobController::class, 'retry']);
 
 Route::post('/batches', [ContentJobController::class, 'batch']);
 Route::get('/batches/{batchId}', [ContentJobController::class, 'batchStatus']);

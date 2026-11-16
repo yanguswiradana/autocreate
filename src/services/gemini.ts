@@ -255,6 +255,7 @@ async function generateWithOpenCode(
     headers: {
       "Content-Type": "application/json",
       Authorization: `Bearer ${apiKey}`,
+      "x-opencode-session": crypto.randomUUID(),
     },
     body: JSON.stringify({
       model,

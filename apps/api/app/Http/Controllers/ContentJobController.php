@@ -178,6 +178,22 @@ class ContentJobController extends Controller
         return response()->json($res->json(), $res->status());
     }
 
+    public function retry(int $id): JsonResponse
+    {
+        $job = ContentJob::findOrFail($id);
+        $job->update([
+            'status' => 'queued',
+            'error_message' => null,
+            'started_at' => null,
+            'finished_at' => null,
+            'duration_ms' => null,
+        ]);
+
+        DispatchRenderJob::dispatch($job->id);
+
+        return response()->json(['ok' => true, 'job' => $job->fresh()], 202);
+    }
+
     public function rerender(Request $request, int $id): JsonResponse
     {
         $job = ContentJob::findOrFail($id);
@@ -360,7 +376,10 @@ class ContentJobController extends Controller
             if ($opencodeKey !== '') {
                 $baseUrl = rtrim((string) env('OPENCODE_BASE_URL', 'https://opencode.ai/zen/go/v1'), '/');
                 $model = $models['opencode'] ?? env('OPENCODE_MODEL', 'glm-5.3-flash');
-                $resp = Http::timeout(12)->withToken($opencodeKey)->post("{$baseUrl}/chat/completions", [
+                $resp = Http::timeout(12)
+                    ->withToken($opencodeKey)
+                    ->withHeaders(['x-opencode-session' => (string) Str::uuid()])
+                    ->post("{$baseUrl}/chat/completions", [
                     'model' => $model,
                     'temperature' => 0.2,
                     'messages' => [

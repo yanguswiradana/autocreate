@@ -746,6 +746,17 @@ export function ChatHarnessStudio() {
     await loadJobs();
   };
 
+  const handleRetryJob = async (id: number) => {
+    setErrorBanner(null);
+    const res = await fetch(`/api/jobs/${id}/retry`, { method: "POST" });
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      setErrorBanner(data.error || "Gagal mengulang render job.");
+      return;
+    }
+    await loadJobs();
+  };
+
   const isComposerLocked =
     step === "generating" || step === "completed" || Boolean(busyHint);
 
@@ -1524,26 +1535,34 @@ export function ChatHarnessStudio() {
                                       </div>
                                     </div>
 
-                                    <div>
+                                    <div className="sm:col-span-3">
                                       <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wider text-[#a1a1aa]">
                                         Provider Visual
                                       </p>
-                                      <select
-                                        value={draft.visualProvider}
-                                        onChange={(e) =>
-                                          setDraft((prev) => ({
-                                            ...prev,
-                                            visualProvider: e.target.value,
-                                          }))
-                                        }
-                                        className="w-full rounded-lg border border-white/10 bg-[#1a1a1f] px-2.5 py-1.5 text-xs text-[#f4f4f5] outline-none focus:border-[#ddf77b]/60"
-                                      >
-                                        {VISUAL_PROVIDERS.map((vp) => (
-                                          <option key={vp.id} value={vp.id}>
-                                            {vp.label}
-                                          </option>
-                                        ))}
-                                      </select>
+                                      <div className="flex flex-wrap gap-1.5">
+                                        {VISUAL_PROVIDERS.map((vp) => {
+                                          const active = draft.visualProvider === vp.id;
+                                          return (
+                                            <button
+                                              key={vp.id}
+                                              type="button"
+                                              onClick={() =>
+                                                setDraft((prev) => ({
+                                                  ...prev,
+                                                  visualProvider: vp.id,
+                                                }))
+                                              }
+                                              className={`rounded-lg border px-2.5 py-1.5 text-xs font-medium transition ${
+                                                active
+                                                  ? "border-[#ddf77b] bg-[#ddf77b]/15 text-[#ddf77b]"
+                                                  : "border-white/10 bg-[#1a1a1f] text-[#a1a1aa] hover:border-white/25 hover:text-white"
+                                              }`}
+                                            >
+                                              {vp.label}
+                                            </button>
+                                          );
+                                        })}
+                                      </div>
                                     </div>
                                   </div>
 
@@ -1786,6 +1805,15 @@ export function ChatHarnessStudio() {
                                     </div>
 
                                     <div className="flex flex-wrap gap-2">
+                                      {linkedJob.status === "failed" && (
+                                        <button
+                                          type="button"
+                                          onClick={() => handleRetryJob(linkedJob.id)}
+                                          className="rounded-lg bg-[#ddf77b] px-3 py-1.5 text-xs font-bold text-[#181824] hover:opacity-90"
+                                        >
+                                          Coba Lagi (Render Ulang)
+                                        </button>
+                                      )}
                                       <button
                                         type="button"
                                         onClick={() => setPreviewJobId(linkedJob.id)}

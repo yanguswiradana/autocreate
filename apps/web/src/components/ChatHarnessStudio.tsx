@@ -331,8 +331,12 @@ export function ChatHarnessStudio() {
       setBusyHint(null);
     }
 
-    const derivedTopic =
-      cleanTopic || results.find((r) => r.ok && r.title)?.title || "";
+    const extractedTitle = results.find((r) => r.ok && r.title)?.title || "";
+    const derivedTopic = extractedTitle
+      ? cleanTopic
+        ? `${extractedTitle} (Arahan: ${cleanTopic})`
+        : extractedTitle
+      : cleanTopic;
 
     setDraft((prev) => ({
       ...prev,
@@ -342,15 +346,19 @@ export function ChatHarnessStudio() {
       refResults: results,
     }));
 
+    const mockNote = draft.mock
+      ? " Catatan: Mode Mock masih ON — ubah ke Mock: OFF di chat bawah agar AI benar-benar merangkum isi berita ini."
+      : "";
+
     pushMessages(
       {
         id: uid(),
         from: "ai",
         title: "Hasil Ekstraksi Link Referensi",
         text:
-          results.length > 0
+          (results.length > 0
             ? "Referensi berhasil dicek. Konteks link akan dipakai sebagai sumber materi konten."
-            : "URL dicatat sebagai referensi.",
+            : "URL dicatat sebagai referensi.") + mockNote,
         kind: "ref_status",
         refResults: results,
       },

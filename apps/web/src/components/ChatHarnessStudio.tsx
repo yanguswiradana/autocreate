@@ -1160,6 +1160,44 @@ export function ChatHarnessStudio() {
                                       ))}
                                     </div>
                                   )}
+                                  {msg.videoRef.aiVision && (
+                                    <div className="space-y-1.5 rounded-lg border border-[#ddf77b]/25 bg-[#131316] p-2.5 text-xs">
+                                      {msg.videoRef.aiVision.styleSummary && (
+                                        <p className="text-[#d4d4d8]">
+                                          <b className="text-[#ddf77b]">Gaya AI:</b>{" "}
+                                          {msg.videoRef.aiVision.styleSummary}
+                                        </p>
+                                      )}
+                                      {msg.videoRef.aiVision.suggestedHook && (
+                                        <p className="text-[#a1a1aa]">
+                                          <b className="text-[#e4e4e7]">Hook:</b>{" "}
+                                          {msg.videoRef.aiVision.suggestedHook}
+                                        </p>
+                                      )}
+                                      <button
+                                        type="button"
+                                        onClick={() => {
+                                          const topic = msg.videoRef!.aiVision!.suggestedTopic;
+                                          setDraft((prev) => ({ ...prev, topic }));
+                                          pushMessages(
+                                            { id: uid(), from: "user", text: topic },
+                                            {
+                                              id: uid(),
+                                              from: "ai",
+                                              title: "Langkah 2 · Pilih Format & Gaya",
+                                              text: "Topik dari video referensi sudah diisi. Pilih format output atau klik Langsung Generate.",
+                                              meta: "guided-step-2 · konfigurasi",
+                                              kind: "config_card",
+                                            }
+                                          );
+                                          setStep("awaiting_config");
+                                        }}
+                                        className="mt-1 rounded-md border border-[#ddf77b]/40 bg-[#ddf77b]/15 px-2.5 py-1 text-[11px] font-semibold text-[#ddf77b] hover:bg-[#ddf77b]/25"
+                                      >
+                                        Pakai Topik Saran AI &amp; Lanjut Config
+                                      </button>
+                                    </div>
+                                  )}
                                   <div className="flex flex-wrap items-center justify-between gap-2 text-[11px]">
                                     <div className="flex items-center gap-1.5">
                                       {[

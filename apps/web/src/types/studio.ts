@@ -133,6 +133,11 @@ export interface VideoReferenceAnalysis {
     accentColor: string;
   };
   keyframes: string[];
+  aiVision?: {
+    suggestedTopic: string;
+    suggestedHook: string;
+    styleSummary: string;
+  } | null;
 }
 
 export interface ChatMessage {

@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Jobs\ProcessVideoEditJob;
+use App\Models\ProviderKey;
 use App\Models\VideoEdit;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -146,11 +147,83 @@ class VideoEditController extends Controller
                 ], 502);
             }
 
-            return response()->json($res->json());
+            $analysis = $res->json();
+            $analysis['aiVision'] = $this->analyzeKeyframesWithGemini($analysis['keyframes'] ?? []);
+
+            return response()->json($analysis);
         } finally {
             if (file_exists($fullPath)) {
                 @unlink($fullPath);
             }
+        }
+    }
+
+    private function analyzeKeyframesWithGemini(array $keyframes): ?array
+    {
+        if (count($keyframes) === 0) {
+            return null;
+        }
+
+        $apiKeys = ProviderKey::activeMap();
+        $geminiKey = trim((string) ($apiKeys['gemini'] ?? env('GEMINI_API_KEY', '')));
+        if ($geminiKey === '') {
+            return null;
+        }
+
+        $parts = [
+            [
+                'text' => 'Analisis 4 keyframe video referensi ini. Kembalikan JSON dengan tepat 3 field string bahasa Indonesia: {"suggestedTopic": "...", "suggestedHook": "...", "styleSummary": "..."}. Ringkas dan langsung bisa dipakai untuk membuat konten carousel/video baru.',
+            ],
+        ];
+
+        foreach (array_slice($keyframes, 0, 4) as $dataUri) {
+            if (!is_string($dataUri)) {
+                continue;
+            }
+            $b64 = preg_replace('/^data:image\/[a-zA-Z0-9+.-]+;base64,/', '', $dataUri);
+            if ($b64) {
+                $parts[] = [
+                    'inline_data' => [
+                        'mime_type' => 'image/jpeg',
+                        'data' => $b64,
+                    ],
+                ];
+            }
+        }
+
+        try {
+            $resp = Http::timeout(25)->post(
+                "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={$geminiKey}",
+                [
+                    'contents' => [['parts' => $parts]],
+                    'generationConfig' => [
+                        'responseMimeType' => 'application/json',
+                        'temperature' => 0.4,
+                    ],
+                ]
+            );
+
+            if ($resp->failed()) {
+                return null;
+            }
+
+            $text = $resp->json('candidates.0.content.parts.0.text');
+            if (!is_string($text) || trim($text) === '') {
+                return null;
+            }
+
+            $parsed = json_decode($text, true);
+            if (!is_array($parsed) || empty($parsed['suggestedTopic'])) {
+                return null;
+            }
+
+            return [
+                'suggestedTopic' => (string) $parsed['suggestedTopic'],
+                'suggestedHook' => (string) ($parsed['suggestedHook'] ?? ''),
+                'styleSummary' => (string) ($parsed['styleSummary'] ?? ''),
+            ];
+        } catch (\Throwable) {
+            return null;
         }
     }
 }

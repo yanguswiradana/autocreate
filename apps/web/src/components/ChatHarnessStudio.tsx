@@ -382,7 +382,6 @@ export function ChatHarnessStudio() {
 
     if (step === "idle" || step === "awaiting_brief") {
       const urls = extractUrlsFromText(raw);
-      const textWithoutUrls = raw.replace(/https?:\/\/[^\s]+/gi, "").trim();
       const lines = raw
         .split(/\r?\n/)
         .map((l) => l.trim())
@@ -392,24 +391,107 @@ export function ChatHarnessStudio() {
       pushMessages({ id: uid(), from: "user", text: raw });
       setComposerText("");
 
-      if (urls.length > 0) {
-        await checkUrlsAndAdvance(urls, textWithoutUrls, false);
+      if (isBatch) {
+        setDraft((prev) => ({ ...prev, topic: raw, isBatch: true }));
+        pushMessages({
+          id: uid(),
+          from: "ai",
+          title: "Langkah 2 · Pilih Format & Gaya Visual",
+          text: `Terdeteksi ${lines.length} topik untuk Mode Batch. Pilih konfigurasi yang akan diterapkan ke semua topik:`,
+          meta: "restricted options",
+          kind: "config_card",
+        });
+        setStep("awaiting_config");
         return;
       }
 
+      let intentData: {
+        intent?: string;
+        urls?: string[];
+        cleanTopic?: string;
+        instruction?: string;
+        suggestedOutputs?: string[] | null;
+        suggestedAspectRatio?: string | null;
+        suggestedSeries?: string | null;
+        assistantReply?: string;
+        source?: string;
+      } | null = null;
+
+      setBusyHint("AI sedang memahami maksud pesan Anda...");
+      try {
+        const res = await fetch("/api/chat-intent", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ message: raw, mock: draft.mock }),
+        });
+        if (res.ok) {
+          intentData = await res.json();
+        }
+      } catch {
+        // fallback to local handling below
+      } finally {
+        setBusyHint(null);
+      }
+
+      if (intentData) {
+        setDraft((prev) => ({
+          ...prev,
+          outputs:
+            Array.isArray(intentData?.suggestedOutputs) &&
+            intentData.suggestedOutputs.length > 0
+              ? intentData.suggestedOutputs
+              : prev.outputs,
+          aspectRatio: intentData?.suggestedAspectRatio || prev.aspectRatio,
+          series: intentData?.suggestedSeries || prev.series,
+        }));
+
+        if (intentData.intent === "clarify") {
+          pushMessages({
+            id: uid(),
+            from: "ai",
+            title: "Asisten Studio",
+            text:
+              intentData.assistantReply ||
+              "Silakan tulis topik konten atau tempel link berita yang ingin diolah.",
+            meta: `intent: clarify (${intentData.source || "ai"})`,
+          });
+          setStep("awaiting_brief");
+          return;
+        }
+      }
+
+      const detectedUrls =
+        intentData?.urls && intentData.urls.length > 0 ? intentData.urls : urls;
+
+      if (detectedUrls.length > 0) {
+        if (intentData?.assistantReply) {
+          pushMessages({
+            id: uid(),
+            from: "ai",
+            title: "Pendekatan Terpilih · Link + Arahan",
+            text: intentData.assistantReply,
+            meta: `intent: ${intentData.intent || "link"} (${intentData.source || "local"})`,
+          });
+        }
+        const instr = intentData?.instruction || raw.replace(/https?:\/\/[^\s]+/gi, "").trim();
+        await checkUrlsAndAdvance(detectedUrls, instr, false);
+        return;
+      }
+
+      const finalTopic = intentData?.cleanTopic?.trim() || raw;
       setDraft((prev) => ({
         ...prev,
-        topic: raw,
-        isBatch,
+        topic: finalTopic,
+        isBatch: false,
       }));
       pushMessages({
         id: uid(),
         from: "ai",
         title: "Langkah 2 · Pilih Format & Gaya Visual",
-        text: isBatch
-          ? `Terdeteksi ${lines.length} topik untuk Mode Batch. Pilih konfigurasi yang akan diterapkan ke semua topik:`
-          : "Brief diterima. Silakan pilih format output, rasio, dan gaya visual di bawah:",
-        meta: "restricted options",
+        text:
+          intentData?.assistantReply ||
+          "Brief diterima. Silakan pilih format output, rasio, dan gaya visual di bawah:",
+        meta: `intent: ${intentData?.intent || "topic_brief"} (${intentData?.source || "local"})`,
         kind: "config_card",
       });
       setStep("awaiting_config");

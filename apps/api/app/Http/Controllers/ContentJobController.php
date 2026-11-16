@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Jobs\DispatchRenderJob;
 use App\Models\ContentJob;
+use App\Models\ProviderKey;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Http;
@@ -205,5 +206,156 @@ class ContentJobController extends Controller
         }
 
         return response()->json($res->json(), $res->status());
+    }
+
+    public function chatIntent(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'message' => ['required', 'string', 'max:2000'],
+            'mock' => ['sometimes', 'boolean'],
+        ]);
+
+        $raw = trim($validated['message']);
+        $mock = (bool) ($validated['mock'] ?? false);
+        preg_match_all('/https?:\/\/[^\s]+/i', $raw, $urlMatches);
+        $urls = array_values(array_unique($urlMatches[0] ?? []));
+        $textOnly = trim((string) preg_replace('/https?:\/\/[^\s]+/i', '', $raw));
+
+        $heuristic = $this->heuristicIntent($raw, $textOnly, $urls);
+
+        if ($mock) {
+            return response()->json($heuristic);
+        }
+
+        $aiResult = $this->classifyIntentWithAi($raw, $urls);
+        if ($aiResult !== null) {
+            return response()->json(array_merge($heuristic, $aiResult, ['urls' => $urls]));
+        }
+
+        return response()->json($heuristic);
+    }
+
+    private function heuristicIntent(string $raw, string $textOnly, array $urls): array
+    {
+        $lower = mb_strtolower($raw);
+        $hasQuestion = str_contains($raw, '?')
+            || preg_match('/^(halo|hai|hi|cara|bagaimana|gimana|apa itu|kenapa)\b/i', $lower) === 1;
+
+        $outputs = null;
+        $aspectRatio = null;
+        if (preg_match('/\b(reels|tiktok|shorts|video)\b/i', $lower)) {
+            $outputs = ['video'];
+            $aspectRatio = '9:16';
+        } elseif (preg_match('/\b(feed|carousel|slide|ig)\b/i', $lower)) {
+            $outputs = ['carousel'];
+            $aspectRatio = '4:5';
+        } elseif (preg_match('/\b(poster|flyer|infografis)\b/i', $lower)) {
+            $outputs = ['poster'];
+            $aspectRatio = '4:5';
+        }
+
+        if (count($urls) > 0) {
+            $cleanInstr = trim((string) preg_replace('/^(aku mau |tolong |coba )?(bikin|buat|buatkan)\s+(konten\s+)?(feed|carousel|video|reels|poster)?\s*(dari\s+)?(berita|link|artikel)?\s*(ini)?/i', '', $textOnly));
+            return [
+                'intent' => 'link_with_instruction',
+                'urls' => $urls,
+                'cleanTopic' => '',
+                'instruction' => $cleanInstr ?: $textOnly,
+                'suggestedOutputs' => $outputs,
+                'suggestedAspectRatio' => $aspectRatio,
+                'suggestedSeries' => null,
+                'assistantReply' => 'Oke, saya tangkap Anda ingin mengolah link referensi tersebut'
+                    . ($outputs ? ' menjadi format ' . implode(', ', $outputs) . ($aspectRatio ? " ({$aspectRatio})" : '') : '')
+                    . '. Saya baca isi linknya dulu ya.',
+                'source' => 'heuristic',
+            ];
+        }
+
+        if ($hasQuestion && mb_strlen($raw) < 120) {
+            return [
+                'intent' => 'clarify',
+                'urls' => [],
+                'cleanTopic' => '',
+                'instruction' => '',
+                'suggestedOutputs' => null,
+                'suggestedAspectRatio' => null,
+                'suggestedSeries' => null,
+                'assistantReply' => 'Siap! Untuk mulai membuat konten, Anda bisa tulis topik utamanya, tempel link berita + arahan (misal: "buatkan feed dari berita ini https://..."), atau klik @Remix untuk mengolah proyek lama.',
+                'source' => 'heuristic',
+            ];
+        }
+
+        $cleaned = trim((string) preg_replace('/^(aku mau |tolong |coba )?(bikin|buat|buatkan)\s+(konten\s+)?(feed|carousel|video|reels|poster)?\s*(tentang\s+|soal\s+)?/i', '', $textOnly));
+        return [
+            'intent' => 'topic_brief',
+            'urls' => [],
+            'cleanTopic' => $cleaned !== '' ? $cleaned : $textOnly,
+            'instruction' => $textOnly,
+            'suggestedOutputs' => $outputs,
+            'suggestedAspectRatio' => $aspectRatio,
+            'suggestedSeries' => null,
+            'assistantReply' => 'Siap, saya arahkan ke brief topik "' . ($cleaned !== '' ? $cleaned : $textOnly) . '"'
+                . ($outputs ? ' dengan format ' . implode(', ', $outputs) . ($aspectRatio ? " ({$aspectRatio})" : '') : '')
+                . '. Silakan pilih opsi detail di bawah.',
+            'source' => 'heuristic',
+        ];
+    }
+
+    private function classifyIntentWithAi(string $raw, array $urls): ?array
+    {
+        $keys = ProviderKey::activeMap();
+        $models = ProviderKey::activeModels();
+        $geminiKey = trim((string) ($keys['gemini'] ?? env('GEMINI_API_KEY', '')));
+        $opencodeKey = trim((string) ($keys['opencode'] ?? env('OPENCODE_API_KEY', '')));
+
+        $prompt = "Analisis pesan user untuk studio pembuat konten sosmed. Kembalikan JSON valid dengan field:\n"
+            . '{"intent":"topic_brief|link_with_instruction|clarify","cleanTopic":"topik inti singkat atau kosong jika ada URL","instruction":"arahan gaya/sudut pandang user","suggestedOutputs":["carousel"|"video"|"poster"] atau null,"suggestedAspectRatio":"4:5"|"9:16"|"1:1"|"16:9" atau null,"suggestedSeries":"edukasi"|"fakta_cepat"|"storytelling"|"promo_brand" atau null,"assistantReply":"balasan 1-2 kalimat bahasa Indonesia menjelaskan pendekatan yang dipilih"}'
+            . "\n\nPesan user: " . $raw;
+
+        try {
+            if ($geminiKey !== '') {
+                $model = $models['gemini'] ?? env('GEMINI_TEXT_MODEL', 'gemini-2.5-flash');
+                $resp = Http::timeout(12)->post(
+                    "https://generativelanguage.googleapis.com/v1beta/models/{$model}:generateContent?key={$geminiKey}",
+                    [
+                        'contents' => [['parts' => [['text' => $prompt]]]],
+                        'generationConfig' => ['responseMimeType' => 'application/json', 'temperature' => 0.2],
+                    ]
+                );
+                if ($resp->ok()) {
+                    $parsed = json_decode((string) $resp->json('candidates.0.content.parts.0.text'), true);
+                    if (is_array($parsed) && !empty($parsed['intent']) && !empty($parsed['assistantReply'])) {
+                        $parsed['source'] = 'gemini';
+                        return $parsed;
+                    }
+                }
+            }
+
+            if ($opencodeKey !== '') {
+                $baseUrl = rtrim((string) env('OPENCODE_BASE_URL', 'https://opencode.ai/zen/go/v1'), '/');
+                $model = $models['opencode'] ?? env('OPENCODE_MODEL', 'glm-5.3-flash');
+                $resp = Http::timeout(12)->withToken($opencodeKey)->post("{$baseUrl}/chat/completions", [
+                    'model' => $model,
+                    'temperature' => 0.2,
+                    'messages' => [
+                        ['role' => 'system', 'content' => 'Jawab hanya dengan JSON valid sesuai skema yang diminta.'],
+                        ['role' => 'user', 'content' => $prompt],
+                    ],
+                ]);
+                if ($resp->ok()) {
+                    $content = (string) $resp->json('choices.0.message.content');
+                    $content = preg_replace('/^```json\s*|\s*```$/m', '', trim($content));
+                    $parsed = json_decode((string) $content, true);
+                    if (is_array($parsed) && !empty($parsed['intent']) && !empty($parsed['assistantReply'])) {
+                        $parsed['source'] = 'opencode';
+                        return $parsed;
+                    }
+                }
+            }
+        } catch (\Throwable) {
+            return null;
+        }
+
+        return null;
     }
 }

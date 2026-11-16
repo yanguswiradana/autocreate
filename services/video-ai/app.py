@@ -25,6 +25,12 @@ ASPECT_DIMENSIONS = {
 }
 
 
+class SubtitleSegment(BaseModel):
+    start: float
+    end: float
+    text: str
+
+
 class ProcessOptions(BaseModel):
     trimStart: Optional[float] = None
     trimEnd: Optional[float] = None
@@ -36,6 +42,12 @@ class ProcessOptions(BaseModel):
     hookText: Optional[str] = None
     watermarkText: Optional[str] = None
     brandColor: Optional[str] = None
+    subtitleSegments: Optional[list[SubtitleSegment]] = None
+
+
+class TranscribeRequest(BaseModel):
+    inputPath: str
+    language: str = "id"
 
 
 class ProcessRequest(BaseModel):
@@ -249,7 +261,7 @@ def format_ass_time(seconds: float) -> str:
     return f"{h}:{m:02d}:{s:02d}.{c:02d}"
 
 
-def generate_subtitles(src: str, ass_path: Path, language: str, work_dir: Path) -> str:
+def transcribe_segments(src: str, language: str, work_dir: Path) -> list[dict]:
     wav_path = str(work_dir / "audio.wav")
     run_cmd(
         [
@@ -270,7 +282,22 @@ def generate_subtitles(src: str, ass_path: Path, language: str, work_dir: Path) 
 
     model = get_whisper_model()
     segments, _ = model.transcribe(wav_path, language=language, beam_size=1)
+    results: list[dict] = []
+    for seg in segments:
+        txt = seg.text.strip().replace("\n", " ")
+        if not txt:
+            continue
+        results.append(
+            {
+                "start": round(float(seg.start), 2),
+                "end": round(float(seg.end), 2),
+                "text": txt,
+            }
+        )
+    return results
 
+
+def write_ass_from_segments(segments: list[dict], ass_path: Path) -> str:
     header = (
         "[Script Info]\n"
         "ScriptType: v4.00+\n"
@@ -286,12 +313,14 @@ def generate_subtitles(src: str, ass_path: Path, language: str, work_dir: Path) 
     events: list[str] = []
     transcript_parts: list[str] = []
     for seg in segments:
-        txt = seg.text.strip().replace("\n", " ")
+        txt = str(seg.get("text", "")).strip().replace("\n", " ")
         if not txt:
             continue
+        start = float(seg.get("start", 0))
+        end = float(seg.get("end", start + 1))
         transcript_parts.append(txt)
         events.append(
-            f"Dialogue: 0,{format_ass_time(seg.start)},{format_ass_time(seg.end)},Default,,0,0,0,,{txt}"
+            f"Dialogue: 0,{format_ass_time(start)},{format_ass_time(end)},Default,,0,0,0,,{txt}"
         )
 
     ass_path.write_text(header + "\n".join(events) + "\n", encoding="utf-8")
@@ -397,11 +426,15 @@ def process_video(req: ProcessRequest):
             current = masked
 
         ass_path: Optional[Path] = None
-        if opts.autoSubtitle:
+        if opts.subtitleSegments and len(opts.subtitleSegments) > 0:
             ass_path = work_dir / "subtitles.ass"
-            transcript = generate_subtitles(
-                str(current), ass_path, opts.language or "id", work_dir
+            transcript = write_ass_from_segments(
+                [s.model_dump() for s in opts.subtitleSegments], ass_path
             )
+        elif opts.autoSubtitle:
+            ass_path = work_dir / "subtitles.ass"
+            segs = transcribe_segments(str(current), opts.language or "id", work_dir)
+            transcript = write_ass_from_segments(segs, ass_path)
 
         finalize_video(
             str(current),
@@ -419,6 +452,21 @@ def process_video(req: ProcessRequest):
         "outputPath": req.outputPath,
         "transcript": transcript,
         "durationSeconds": round(probe_duration(req.outputPath), 2),
+    }
+
+
+@app.post("/transcribe")
+def transcribe_video(req: TranscribeRequest):
+    if not os.path.exists(req.inputPath):
+        raise HTTPException(status_code=404, detail="Input video file not found")
+
+    with tempfile.TemporaryDirectory(prefix="video_ai_tr_") as tmp_dir:
+        segs = transcribe_segments(req.inputPath, req.language or "id", Path(tmp_dir))
+
+    return {
+        "ok": True,
+        "transcript": " ".join(s["text"] for s in segs),
+        "segments": segs,
     }
 
 

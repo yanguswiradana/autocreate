@@ -28,6 +28,7 @@ Route::delete('/provider-keys/{provider}', [ProviderKeyController::class, 'destr
 
 Route::get('/video-edits', [VideoEditController::class, 'index']);
 Route::post('/video-edits', [VideoEditController::class, 'store']);
+Route::post('/video-edits/transcribe', [VideoEditController::class, 'transcribe']);
 Route::get('/video-edits/{id}', [VideoEditController::class, 'show']);
 Route::get('/video-edits/{id}/download', [VideoEditController::class, 'download']);
 Route::delete('/video-edits/{id}', [VideoEditController::class, 'destroy']);

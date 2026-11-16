@@ -47,6 +47,10 @@ export function VideoTakeEditor() {
   const [hookText, setHookText] = useState("");
 
   const [submitting, setSubmitting] = useState(false);
+  const [transcribing, setTranscribing] = useState(false);
+  const [subtitleSegments, setSubtitleSegments] = useState<
+    Array<{ start: number; end: number; text: string }>
+  >([]);
   const [error, setError] = useState<string | null>(null);
   const [edits, setEdits] = useState<VideoEditRecord[]>([]);
   const [selectedId, setSelectedId] = useState<number | null>(null);
@@ -106,6 +110,9 @@ export function VideoTakeEditor() {
       form.append("aspectRatio", aspectRatio);
       form.append("autoSubtitle", String(autoSubtitle));
       form.append("language", language);
+      if (autoSubtitle && subtitleSegments.length > 0) {
+        form.append("subtitleSegments", JSON.stringify(subtitleSegments));
+      }
       if (hookText.trim()) form.append("hookText", hookText.trim());
 
       const res = await fetch("/api/video-edits", {
@@ -118,12 +125,43 @@ export function VideoTakeEditor() {
       setFile(null);
       setTitle("");
       setHookText("");
+      setSubtitleSegments([]);
       if (data.edit?.id) setSelectedId(data.edit.id);
       await loadEdits();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Terjadi kesalahan");
     } finally {
       setSubmitting(false);
+    }
+  };
+
+  const handleExtractSubtitles = async () => {
+    if (!file) {
+      setError("Pilih file video take terlebih dahulu untuk ekstrak subtitle.");
+      return;
+    }
+    setTranscribing(true);
+    setError(null);
+    try {
+      const form = new FormData();
+      form.append("video", file);
+      form.append("language", language);
+      const res = await fetch("/api/video-edits/transcribe", {
+        method: "POST",
+        body: form,
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || data.message || "Gagal ekstrak subtitle");
+      const segs = Array.isArray(data.segments) ? data.segments : [];
+      setSubtitleSegments(segs);
+      setAutoSubtitle(true);
+      if (segs.length === 0) {
+        setError("Tidak ada suara/kalimat terdeteksi di video ini.");
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Gagal ekstrak subtitle");
+    } finally {
+      setTranscribing(false);
     }
   };
 
@@ -309,8 +347,56 @@ export function VideoTakeEditor() {
                   <option value="en">EN</option>
                 </select>
               </div>
+
+              <button
+                type="button"
+                disabled={transcribing || !file}
+                onClick={handleExtractSubtitles}
+                className="w-full rounded-lg border border-white/15 bg-[#1a1a1f] px-3 py-1.5 text-[11px] font-semibold text-[#e4e4e7] hover:border-[#ddf77b]/60 hover:text-[#ddf77b] disabled:opacity-40"
+              >
+                {transcribing
+                  ? "Mengekstrak Transkrip Whisper..."
+                  : "Ekstrak & Edit Subtitle Sebelum Render"}
+              </button>
             </div>
           </div>
+
+          {subtitleSegments.length > 0 && (
+            <div className="space-y-2 rounded-xl border border-[#ddf77b]/30 bg-[#1a1a1f] p-3.5">
+              <div className="flex items-center justify-between">
+                <p className="text-xs font-semibold text-[#ddf77b]">
+                  Edit Draft Subtitle ({subtitleSegments.length} segmen) — akan dibakar ke MP4 saat proses
+                </p>
+                <button
+                  type="button"
+                  onClick={() => setSubtitleSegments([])}
+                  className="text-[11px] text-[#a1a1aa] hover:text-white"
+                >
+                  Hapus Draft
+                </button>
+              </div>
+              <div className="max-h-48 space-y-1.5 overflow-y-auto pr-1">
+                {subtitleSegments.map((seg, idx) => (
+                  <div key={idx} className="flex items-center gap-2">
+                    <span className="w-24 shrink-0 font-mono text-[10px] text-[#a1a1aa]">
+                      {seg.start.toFixed(1)}s–{seg.end.toFixed(1)}s
+                    </span>
+                    <input
+                      type="text"
+                      value={seg.text}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        setSubtitleSegments((prev) =>
+                          prev.map((item, i) => (i === idx ? { ...item, text: val } : item))
+                        );
+                      }}
+                      className="flex-1 rounded-lg border border-white/10 bg-[#131316] px-2.5 py-1 text-xs text-[#f4f4f5] outline-none focus:border-[#ddf77b]/60"
+                    />
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
 
           <div className="flex items-center justify-between border-t border-white/10 pt-4">
             <span className="text-[11px] text-[#63636b]">

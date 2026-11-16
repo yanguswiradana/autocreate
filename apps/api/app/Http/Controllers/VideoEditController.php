@@ -60,6 +60,15 @@ class VideoEditController extends Controller
             $title = pathinfo($file->getClientOriginalName(), PATHINFO_FILENAME) ?: 'Video Take';
         }
 
+        $subtitleSegments = null;
+        $rawSegments = $request->input('subtitleSegments');
+        if (is_string($rawSegments) && trim($rawSegments) !== '') {
+            $decoded = json_decode($rawSegments, true);
+            if (is_array($decoded) && count($decoded) > 0) {
+                $subtitleSegments = $decoded;
+            }
+        }
+
         $options = [
             'trimStart' => isset($validated['trimStart']) ? (float) $validated['trimStart'] : null,
             'trimEnd' => isset($validated['trimEnd']) ? (float) $validated['trimEnd'] : null,
@@ -69,6 +78,7 @@ class VideoEditController extends Controller
             'autoSubtitle' => filter_var($request->input('autoSubtitle', false), FILTER_VALIDATE_BOOLEAN),
             'language' => $validated['language'] ?? 'id',
             'hookText' => $validated['hookText'] ?? null,
+            'subtitleSegments' => $subtitleSegments,
         ];
 
         $edit = VideoEdit::create([
@@ -116,6 +126,45 @@ class VideoEditController extends Controller
 
         $edit->delete();
         return response()->json(['ok' => true]);
+    }
+
+    public function transcribe(Request $request): JsonResponse
+    {
+        $request->validate([
+            'video' => ['required', 'file', 'mimes:mp4,mov,webm,mkv', 'max:204800'],
+            'language' => ['nullable', 'string', 'in:id,en'],
+        ]);
+
+        $file = $request->file('video');
+        $ext = strtolower($file->getClientOriginalExtension() ?: 'mp4');
+        $tmpDir = $this->mediaRoot() . '/tmp';
+        if (!is_dir($tmpDir)) {
+            mkdir($tmpDir, 0775, true);
+        }
+
+        $filename = 'tr_' . now()->format('Ymd_His') . '_' . Str::random(8) . '.' . $ext;
+        $file->move($tmpDir, $filename);
+        $fullPath = "{$tmpDir}/{$filename}";
+
+        try {
+            $videoAiUrl = rtrim((string) env('VIDEO_AI_URL', 'http://video-ai:8090'), '/');
+            $res = Http::timeout(180)->post("{$videoAiUrl}/transcribe", [
+                'inputPath' => $fullPath,
+                'language' => $request->input('language', 'id'),
+            ]);
+
+            if ($res->failed()) {
+                return response()->json([
+                    'error' => 'Gagal mengekstrak subtitle: ' . $res->body(),
+                ], 502);
+            }
+
+            return response()->json($res->json());
+        } finally {
+            if (file_exists($fullPath)) {
+                @unlink($fullPath);
+            }
+        }
     }
 
     public function analyzeReference(Request $request): JsonResponse

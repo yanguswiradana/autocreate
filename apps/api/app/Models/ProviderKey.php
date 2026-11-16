@@ -12,6 +12,7 @@ class ProviderKey extends Model
         'provider',
         'encrypted_key',
         'masked_key',
+        'model',
         'is_active',
         'last_tested_at',
         'last_test_status',
@@ -70,6 +71,25 @@ class ProviderKey extends Model
             $plain = $row->getPlainKey();
             if ($plain) {
                 $map[$row->provider] = $plain;
+            }
+        }
+
+        return $map;
+    }
+
+    /**
+     * Returns configured model overrides per active provider.
+     *
+     * @return array<string, string>
+     */
+    public static function activeModels(): array
+    {
+        $map = [];
+        $rows = self::where('is_active', true)->whereNotNull('model')->get();
+        foreach ($rows as $row) {
+            $model = trim((string) $row->model);
+            if ($model !== '') {
+                $map[$row->provider] = $model;
             }
         }
 

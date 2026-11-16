@@ -40,6 +40,7 @@ class DispatchRenderJob implements ShouldQueue
 
         $options = $job->options ?? [];
         $byokKeys = ProviderKey::activeMap();
+        $byokModels = ProviderKey::activeModels();
         $brandkitPayload = $this->resolveBrandkitPayload($options['brandkit'] ?? null);
 
         try {
@@ -60,6 +61,7 @@ class DispatchRenderJob implements ShouldQueue
                     'bgmVolume' => $options['bgmVolume'] ?? null,
                     'customSceneImages' => $options['customSceneImages'] ?? null,
                     'apiKeys' => $byokKeys ?: null,
+                    'aiModels' => $byokModels ?: null,
                 ],
                 'brandkit' => $brandkitPayload,
                 'webhookUrl' => "{$apiInternalUrl}/api/webhooks/render/{$job->id}",

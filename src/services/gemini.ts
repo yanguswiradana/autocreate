@@ -26,6 +26,10 @@ export interface GenerateBlueprintOptions {
     gemini?: string;
     opencode?: string;
   };
+  aiModels?: {
+    gemini?: string;
+    opencode?: string;
+  };
 }
 
 type AiProviderMode = "auto" | "gemini" | "opencode";
@@ -50,6 +54,7 @@ export async function generateBlueprint(
     referenceContext,
     mock = false,
     apiKeys,
+    aiModels,
   } = options;
 
   const seriesConfig = getSeriesPreset(series);
@@ -133,19 +138,19 @@ Format JSON yang wajib diikuti:
   let bp: ContentBlueprint;
 
   if (mode === "opencode") {
-    bp = await generateWithOpenCode(systemPrompt, userPrompt, opencodeKey);
+    bp = await generateWithOpenCode(systemPrompt, userPrompt, opencodeKey, aiModels?.opencode);
   } else if (mode === "gemini") {
-    bp = await generateWithGemini(systemPrompt, userPrompt, geminiKey);
+    bp = await generateWithGemini(systemPrompt, userPrompt, geminiKey, aiModels?.gemini);
   } else if (hasGemini) {
     try {
-      bp = await generateWithGemini(systemPrompt, userPrompt, geminiKey);
+      bp = await generateWithGemini(systemPrompt, userPrompt, geminiKey, aiModels?.gemini);
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       if (hasOpenCode) {
         console.warn(
           `[AI Director] Gemini gagal (${msg}), beralih ke fallback OpenCode Go...`
         );
-        bp = await generateWithOpenCode(systemPrompt, userPrompt, opencodeKey);
+        bp = await generateWithOpenCode(systemPrompt, userPrompt, opencodeKey, aiModels?.opencode);
       } else {
         console.warn(
           `[AI Director] Gemini gagal dan OPENCODE_API_KEY belum ada di .env, fallback tidak aktif.`
@@ -155,7 +160,7 @@ Format JSON yang wajib diikuti:
     }
   } else if (hasOpenCode) {
     console.log("[AI Director] GEMINI_API_KEY kosong, menggunakan OpenCode Go...");
-    bp = await generateWithOpenCode(systemPrompt, userPrompt, opencodeKey);
+    bp = await generateWithOpenCode(systemPrompt, userPrompt, opencodeKey, aiModels?.opencode);
   } else {
     throw new Error(
       "GEMINI_API_KEY dan OPENCODE_API_KEY belum diisi di .env. Jalankan dengan --mock untuk testing tanpa API key."
@@ -195,14 +200,15 @@ function isConfigured(val: string | undefined, placeholder: string): boolean {
 async function generateWithGemini(
   systemPrompt: string,
   userPrompt: string,
-  overrideKey?: string
+  overrideKey?: string,
+  overrideModel?: string
 ): Promise<ContentBlueprint> {
   const apiKey = overrideKey || process.env.GEMINI_API_KEY;
   if (!isConfigured(apiKey, "your_gemini_api_key_here")) {
     throw new Error("GEMINI_API_KEY belum diisi.");
   }
 
-  const model = process.env.GEMINI_TEXT_MODEL || "gemini-3.8-flash";
+  const model = overrideModel || process.env.GEMINI_TEXT_MODEL || "gemini-3.8-flash";
   const ai = new GoogleGenAI({ apiKey });
 
   const response = await ai.models.generateContent({
@@ -225,7 +231,8 @@ async function generateWithGemini(
 async function generateWithOpenCode(
   systemPrompt: string,
   userPrompt: string,
-  overrideKey?: string
+  overrideKey?: string,
+  overrideModel?: string
 ): Promise<ContentBlueprint> {
   const apiKey = overrideKey || process.env.OPENCODE_API_KEY;
   if (!isConfigured(apiKey, "your_opencode_api_key_here")) {
@@ -235,7 +242,7 @@ async function generateWithOpenCode(
   const baseUrl = (
     process.env.OPENCODE_BASE_URL || "https://opencode.ai/zen/go/v1"
   ).replace(/\/+$/, "");
-  const model = process.env.OPENCODE_MODEL || "glm-5.3-flash";
+  const model = overrideModel || process.env.OPENCODE_MODEL || "glm-5.3-flash";
 
   const res = await fetch(`${baseUrl}/chat/completions`, {
     method: "POST",

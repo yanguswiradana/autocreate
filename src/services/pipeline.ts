@@ -48,6 +48,10 @@ export interface ContentJobOptions {
     gemini?: string;
     opencode?: string;
   };
+  aiModels?: {
+    gemini?: string;
+    opencode?: string;
+  };
 }
 
 export async function bundleRemotionProject(): Promise<string> {
@@ -127,6 +131,7 @@ export async function runContentJob(
     referenceContext,
     mock,
     apiKeys: options.apiKeys,
+    aiModels: options.aiModels,
   });
 
   fs.mkdirSync(jobDir, { recursive: true });

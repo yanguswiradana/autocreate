@@ -214,7 +214,9 @@ class VideoEditController extends Controller
         }
 
         $apiKeys = ProviderKey::activeMap();
+        $activeModels = ProviderKey::activeModels();
         $geminiKey = trim((string) ($apiKeys['gemini'] ?? env('GEMINI_API_KEY', '')));
+        $geminiModel = trim((string) ($activeModels['gemini'] ?? 'gemini-2.5-flash')) ?: 'gemini-2.5-flash';
         if ($geminiKey === '') {
             return null;
         }
@@ -242,7 +244,7 @@ class VideoEditController extends Controller
 
         try {
             $resp = Http::timeout(25)->post(
-                "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={$geminiKey}",
+                "https://generativelanguage.googleapis.com/v1beta/models/{$geminiModel}:generateContent?key={$geminiKey}",
                 [
                     'contents' => [['parts' => $parts]],
                     'generationConfig' => [

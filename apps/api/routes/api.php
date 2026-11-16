@@ -23,6 +23,7 @@ Route::post('/discover', [ContentJobController::class, 'discover']);
 
 Route::get('/provider-keys', [ProviderKeyController::class, 'index']);
 Route::post('/provider-keys', [ProviderKeyController::class, 'store']);
+Route::get('/provider-keys/models', [ProviderKeyController::class, 'models']);
 Route::post('/provider-keys/test', [ProviderKeyController::class, 'test']);
 Route::delete('/provider-keys/{provider}', [ProviderKeyController::class, 'destroy']);
 

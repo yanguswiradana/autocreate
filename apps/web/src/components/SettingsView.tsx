@@ -26,6 +26,7 @@ interface StoredProviderKey {
   id: number;
   provider: "gemini" | "opencode";
   masked_key: string;
+  model?: string | null;
   is_active: boolean;
   last_test_status?: string | null;
   updated_at: string;
@@ -46,6 +47,17 @@ export function SettingsView({
   const [keyInputs, setKeyInputs] = useState<{ gemini: string; opencode: string }>({
     gemini: "",
     opencode: "",
+  });
+  const [modelInputs, setModelInputs] = useState<{ gemini: string; opencode: string }>({
+    gemini: "gemini-2.5-flash",
+    opencode: "glm-5.3-flash",
+  });
+  const [availableModels, setAvailableModels] = useState<{
+    gemini: string[];
+    opencode: string[];
+  }>({
+    gemini: ["gemini-2.5-flash", "gemini-3.8-flash", "gemini-2.5-pro"],
+    opencode: ["glm-5.3-flash", "qwen-3-coder", "deepseek-v3"],
   });
   const [keyFeedback, setKeyFeedback] = useState<Record<string, { ok: boolean; text: string }>>({});
   const [busyProvider, setBusyProvider] = useState<string | null>(null);
@@ -103,7 +115,17 @@ export function SettingsView({
       const res = await fetch("/api/provider-keys", { cache: "no-store" });
       if (!res.ok) return;
       const data = await res.json();
-      setStoredKeys(data.keys || []);
+      const list: StoredProviderKey[] = data.keys || [];
+      setStoredKeys(list);
+      setModelInputs((prev) => {
+        const next = { ...prev };
+        for (const item of list) {
+          if (item.model) {
+            next[item.provider] = item.model;
+          }
+        }
+        return next;
+      });
     } catch {
       // ignore transient fetch error
     }
@@ -115,7 +137,15 @@ export function SettingsView({
 
   const handleSaveProviderKey = async (provider: "gemini" | "opencode") => {
     const apiKey = keyInputs[provider].trim();
-    if (apiKey.length < 8) {
+    const hasStored = storedKeys.some((k) => k.provider === provider);
+    if (!hasStored && apiKey.length < 8) {
+      setKeyFeedback((prev) => ({
+        ...prev,
+        [provider]: { ok: false, text: "API key minimal 8 karakter." },
+      }));
+      return;
+    }
+    if (apiKey.length > 0 && apiKey.length < 8) {
       setKeyFeedback((prev) => ({
         ...prev,
         [provider]: { ok: false, text: "API key minimal 8 karakter." },
@@ -128,7 +158,12 @@ export function SettingsView({
       const res = await fetch("/api/provider-keys", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ provider, apiKey, isActive: true }),
+        body: JSON.stringify({
+          provider,
+          apiKey: apiKey || undefined,
+          model: modelInputs[provider].trim() || undefined,
+          isActive: true,
+        }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.message || data.error || "Gagal menyimpan key");
@@ -142,6 +177,34 @@ export function SettingsView({
       setKeyFeedback((prev) => ({
         ...prev,
         [provider]: { ok: false, text: err instanceof Error ? err.message : "Gagal menyimpan" },
+      }));
+    } finally {
+      setBusyProvider(null);
+    }
+  };
+
+  const handleFetchModels = async (provider: "gemini" | "opencode") => {
+    setBusyProvider(provider);
+    try {
+      const res = await fetch(`/api/provider-keys/models?provider=${provider}`, {
+        cache: "no-store",
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Gagal mengambil daftar model");
+      if (Array.isArray(data.models) && data.models.length > 0) {
+        setAvailableModels((prev) => ({ ...prev, [provider]: data.models }));
+      }
+      setKeyFeedback((prev) => ({
+        ...prev,
+        [provider]: {
+          ok: true,
+          text: `Daftar model diperbarui (${data.models?.length ?? 0} model, sumber: ${data.source}).`,
+        },
+      }));
+    } catch (err) {
+      setKeyFeedback((prev) => ({
+        ...prev,
+        [provider]: { ok: false, text: err instanceof Error ? err.message : "Gagal memuat model" },
       }));
     } finally {
       setBusyProvider(null);
@@ -365,6 +428,48 @@ export function SettingsView({
                           Hapus
                         </button>
                       )}
+                    </div>
+
+                    {/* Model Selector (Kunci Model Hemat) */}
+                    <div className="flex flex-wrap items-center gap-2 pt-1">
+                      <span className="text-[11px] text-[#a1a1aa]">Model:</span>
+                      <select
+                        value={
+                          availableModels[cfg.id].includes(modelInputs[cfg.id])
+                            ? modelInputs[cfg.id]
+                            : "__custom__"
+                        }
+                        onChange={(e) => {
+                          if (e.target.value !== "__custom__") {
+                            setModelInputs((prev) => ({ ...prev, [cfg.id]: e.target.value }));
+                          }
+                        }}
+                        className="rounded-lg border border-white/10 bg-[#1a1a1f] px-2.5 py-1.5 text-xs text-[#f4f4f5] outline-none focus:border-[#ddf77b]/60"
+                      >
+                        {availableModels[cfg.id].map((m) => (
+                          <option key={m} value={m}>
+                            {m}
+                          </option>
+                        ))}
+                        <option value="__custom__">Custom model...</option>
+                      </select>
+                      <input
+                        type="text"
+                        value={modelInputs[cfg.id]}
+                        onChange={(e) =>
+                          setModelInputs((prev) => ({ ...prev, [cfg.id]: e.target.value }))
+                        }
+                        placeholder="Nama model..."
+                        className="min-w-[160px] flex-1 rounded-lg border border-white/10 bg-[#1a1a1f] px-2.5 py-1.5 font-mono text-xs text-[#ddf77b] outline-none focus:border-[#ddf77b]/60"
+                      />
+                      <button
+                        type="button"
+                        disabled={isBusy}
+                        onClick={() => handleFetchModels(cfg.id)}
+                        className="rounded-lg border border-white/15 bg-[#1a1a1f] px-2.5 py-1.5 text-[11px] font-medium text-[#d4d4d8] hover:border-[#ddf77b]/50 disabled:opacity-50"
+                      >
+                        Ambil List Model
+                      </button>
                     </div>
 
                     {fb && (

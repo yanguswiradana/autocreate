@@ -358,6 +358,17 @@ const server = http.createServer(async (req, res) => {
                         : undefined,
                     }
                   : undefined,
+              aiModels:
+                brief.aiModels && typeof brief.aiModels === "object"
+                  ? {
+                      gemini: brief.aiModels.gemini
+                        ? String(brief.aiModels.gemini)
+                        : undefined,
+                      opencode: brief.aiModels.opencode
+                        ? String(brief.aiModels.opencode)
+                        : undefined,
+                    }
+                  : undefined,
               customSceneImages:
                 brief.customSceneImages &&
                 typeof brief.customSceneImages === "object"

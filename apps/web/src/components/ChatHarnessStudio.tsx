@@ -1466,13 +1466,53 @@ export function ChatHarnessStudio() {
                                             onClick={() =>
                                               setDraft((prev) => ({ ...prev, series: s.id }))
                                             }
-                                            className={`rounded-lg border px-2.5 py-1.5 text-xs font-medium transition ${
+                                            className={`flex w-[148px] flex-col gap-1.5 rounded-xl border p-2 text-left transition ${
                                               draft.series === s.id
-                                                ? "border-[#ddf77b] bg-[#ddf77b]/15 text-[#ddf77b]"
-                                                : "border-white/10 bg-[#1a1a1f] text-[#a1a1aa] hover:border-white/25"
+                                                ? "border-[#ddf77b] bg-[#ddf77b]/12 text-[#ddf77b]"
+                                                : "border-white/10 bg-[#1a1a1f] text-[#a1a1aa] hover:border-white/25 hover:text-white"
                                             }`}
                                           >
-                                            {s.label}
+                                            {/* Mini Preview Layout Gaya */}
+                                            <div className="flex h-12 w-full flex-col justify-between overflow-hidden rounded-md border border-white/10 bg-[#0d0d10] p-1.5">
+                                              {s.previewShape === "big_number" && (
+                                                <>
+                                                  <span className="font-mono text-[11px] font-bold leading-none text-[#ddf77b]">01</span>
+                                                  <div className="space-y-0.5">
+                                                    <div className="h-1 w-4/5 rounded bg-white/60" />
+                                                    <div className="h-1 w-3/5 rounded bg-white/25" />
+                                                  </div>
+                                                </>
+                                              )}
+                                              {s.previewShape === "news_headline" && (
+                                                <div className="flex h-full flex-col justify-between border-t-2 border-[#ddf77b] pt-1">
+                                                  <span className="w-fit rounded bg-[#ddf77b] px-1 text-[7px] font-bold text-[#181824]">HEADLINE</span>
+                                                  <div className="h-1.5 w-full rounded bg-white/70" />
+                                                  <div className="h-1 w-2/3 rounded bg-white/30" />
+                                                </div>
+                                              )}
+                                              {s.previewShape === "photo_top_split" && (
+                                                <div className="flex h-full flex-col justify-between">
+                                                  <div className="h-5 w-full rounded-sm bg-gradient-to-r from-[#272736] to-[#3a3a52]" />
+                                                  <div className="h-1 w-3/4 rounded bg-white/65" />
+                                                  <div className="h-1 w-1/2 rounded bg-white/30" />
+                                                </div>
+                                              )}
+                                              {s.previewShape === "split_card" && (
+                                                <div className="flex h-full flex-col justify-center gap-1 border-l-2 border-[#ddf77b] pl-1.5">
+                                                  <span className="text-[7px] font-semibold uppercase text-[#ddf77b]">{s.previewTag}</span>
+                                                  <div className="h-1 w-4/5 rounded bg-white/65" />
+                                                  <div className="h-1 w-3/5 rounded bg-white/30" />
+                                                </div>
+                                              )}
+                                            </div>
+                                            <div>
+                                              <span className="block text-[11px] font-semibold leading-tight">
+                                                {s.label}
+                                              </span>
+                                              <span className="mt-0.5 block text-[9.5px] leading-tight text-[#a1a1aa]">
+                                                {s.desc}
+                                              </span>
+                                            </div>
                                           </button>
                                         ))}
                                       </div>

@@ -31,6 +31,9 @@ export const SlideLayoutSchema = z.enum([
   "split_card",
   "quote_focus",
   "big_number",
+  "photo_top_split",
+  "news_headline",
+  "highlight_box",
 ]);
 export type SlideLayout = z.infer<typeof SlideLayoutSchema>;
 

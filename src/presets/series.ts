@@ -17,7 +17,7 @@ export const SERIES_PRESETS: Record<SeriesPreset, SeriesPresetConfig> = {
     promptDirective:
       "Gunakan pendekatan edukatif yang terstruktur: Slide cover menjanjikan solusi praktis, slide konten berisi langkah atau poin konkret yang mudah dipraktikkan, dan CTA mengajak simpan serta bagikan.",
     defaultTransition: "crossfade",
-    defaultLayoutPattern: ["editorial", "big_number", "split_card"],
+    defaultLayoutPattern: ["editorial", "big_number", "split_card", "highlight_box"],
   },
   fakta_cepat: {
     id: "fakta_cepat",
@@ -26,7 +26,7 @@ export const SERIES_PRESETS: Record<SeriesPreset, SeriesPresetConfig> = {
     promptDirective:
       "Gunakan gaya fakta cepat yang memicu rasa ingin tahu: Slide cover berupa fakta atau pertanyaan mengejutkan, slide konten singkat & punchy (mitos vs realita atau angka kunci), dan CTA mengajak diskusi di komentar.",
     defaultTransition: "zoom",
-    defaultLayoutPattern: ["editorial", "quote_focus", "big_number"],
+    defaultLayoutPattern: ["news_headline", "big_number", "quote_focus", "highlight_box"],
   },
   storytelling: {
     id: "storytelling",
@@ -35,7 +35,7 @@ export const SERIES_PRESETS: Record<SeriesPreset, SeriesPresetConfig> = {
     promptDirective:
       "Gunakan alur storytelling (situasi awal -> konflik/titik balik -> pelajaran): Narasi terasa personal dan reflektif, judul slide tajam namun hangat, dan CTA mengajak audiens berbagi pengalaman.",
     defaultTransition: "crossfade",
-    defaultLayoutPattern: ["editorial", "quote_focus", "quote_focus"],
+    defaultLayoutPattern: ["editorial", "photo_top_split", "quote_focus", "highlight_box"],
   },
   promo_brand: {
     id: "promo_brand",
@@ -44,7 +44,7 @@ export const SERIES_PRESETS: Record<SeriesPreset, SeriesPresetConfig> = {
     promptDirective:
       "Gunakan kerangka copywriting brand (Problem -> Insight -> Solution -> CTA): Soroti masalah nyata audiens, tampilkan nilai solusi brand secara elegan tanpa hard-selling berlebihan, dan akhiri dengan CTA yang tegas.",
     defaultTransition: "slide",
-    defaultLayoutPattern: ["editorial", "split_card", "split_card"],
+    defaultLayoutPattern: ["news_headline", "split_card", "photo_top_split", "highlight_box"],
   },
 };
 

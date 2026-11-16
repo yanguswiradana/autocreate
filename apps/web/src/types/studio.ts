@@ -218,10 +218,38 @@ export const PRESET_OPTIONS = [
 ] as const;
 
 export const SERIES_OPTIONS = [
-  { id: "edukasi", label: "Edukasi & Tips" },
-  { id: "fakta_cepat", label: "Fakta Cepat & Hook" },
-  { id: "storytelling", label: "Storytelling" },
-  { id: "promo_brand", label: "Promo & Brand" },
+  {
+    id: "edukasi",
+    label: "Edukasi & Tips",
+    desc: "Langkah praktis, angka besar, & kartu poin.",
+    previewTag: "01 · TIPS",
+    previewTitle: "3 Langkah Praktis",
+    previewShape: "big_number",
+  },
+  {
+    id: "fakta_cepat",
+    label: "Fakta Cepat & Hook",
+    desc: "Headline berita tebal, kutipan, & highlight.",
+    previewTag: "HEADLINE",
+    previewTitle: "Fakta Mengejutkan",
+    previewShape: "news_headline",
+  },
+  {
+    id: "storytelling",
+    label: "Storytelling",
+    desc: "Foto split atas-bawah, kutipan reflektif, & insight.",
+    previewTag: "STORY",
+    previewTitle: "Awal Cerita & Konflik",
+    previewShape: "photo_top_split",
+  },
+  {
+    id: "promo_brand",
+    label: "Promo & Brand",
+    desc: "Headline masalah, kartu solusi, & CTA tegas.",
+    previewTag: "SOLUSI",
+    previewTitle: "Problem -> Solusi",
+    previewShape: "split_card",
+  },
 ] as const;
 
 export const OUTPUT_OPTIONS = [

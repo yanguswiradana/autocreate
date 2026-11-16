@@ -359,6 +359,92 @@ export const CarouselSlide: React.FC<CarouselSlideProps> = ({
               {scene.slideBody}
             </p>
           </div>
+        ) : layout === "photo_top_split" ? (
+          <div
+            style={{
+              display: "flex",
+              flexDirection: "column",
+              gap: 24,
+              borderRadius: 24,
+              overflow: "hidden",
+              backgroundColor: theme.surface,
+              border: `1px solid ${theme.border}`,
+              boxShadow: "0 24px 60px rgba(0,0,0,0.45)",
+            }}
+          >
+            {bgDataUri && (
+              <div style={{ width: "100%", height: isSquare || isLandscape ? 280 : 380, overflow: "hidden", position: "relative" }}>
+                <Img
+                  src={bgDataUri}
+                  style={{ width: "100%", height: "100%", objectFit: "cover" }}
+                />
+              </div>
+            )}
+            <div style={{ padding: "8px 40px 36px", display: "flex", flexDirection: "column", gap: 16 }}>
+              <span style={{ fontSize: 16, letterSpacing: 3, textTransform: "uppercase", color: theme.accent, fontWeight: 700 }}>
+                {isCover ? (coverBadge || "STORY") : `POIN 0${scene.index}`}
+              </span>
+              <h1 style={{ margin: 0, fontFamily: theme.fontDisplay, fontSize: isSquare || isLandscape ? 42 : 48, lineHeight: 1.15, fontWeight: 700, color: theme.textPrimary }}>
+                {scene.slideTitle}
+              </h1>
+              <p style={{ margin: 0, fontSize: 30, lineHeight: 1.48, color: theme.textSecondary }}>
+                {scene.slideBody}
+              </p>
+            </div>
+          </div>
+        ) : layout === "news_headline" ? (
+          <div
+            style={{
+              display: "flex",
+              flexDirection: "column",
+              gap: 24,
+              padding: "36px 40px",
+              borderRadius: 20,
+              backgroundColor: "rgba(10,10,14,0.82)",
+              borderTop: `8px solid ${theme.accent}`,
+              borderRight: `1px solid ${theme.border}`,
+              borderBottom: `1px solid ${theme.border}`,
+              borderLeft: `1px solid ${theme.border}`,
+            }}
+          >
+            <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+              <span style={{ fontSize: 16, letterSpacing: 3, textTransform: "uppercase", backgroundColor: theme.accent, color: theme.bgPrimary, padding: "6px 14px", borderRadius: 6, fontWeight: 800 }}>
+                {isCover ? "HEADLINE" : `FAKTA #${scene.index}`}
+              </span>
+            </div>
+            <h1 style={{ margin: 0, fontFamily: theme.fontDisplay, fontSize: isSquare || isLandscape ? 48 : 56, lineHeight: 1.12, fontWeight: 800, color: theme.textPrimary, letterSpacing: -0.6 }}>
+              {scene.slideTitle}
+            </h1>
+            <p style={{ margin: 0, fontSize: 32, lineHeight: 1.5, color: theme.textSecondary }}>
+              {scene.slideBody}
+            </p>
+          </div>
+        ) : layout === "highlight_box" ? (
+          <div
+            style={{
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "center",
+              textAlign: "center",
+              gap: 24,
+              padding: "46px 44px",
+              borderRadius: 28,
+              backgroundColor: theme.surface,
+              border: `2px solid ${theme.accent}`,
+              boxShadow: `0 20px 55px ${theme.accentSoft}`,
+            }}
+          >
+            <span style={{ fontSize: 16, letterSpacing: 3.5, textTransform: "uppercase", color: theme.accent, fontWeight: 700 }}>
+              {isCta ? (ctaBadge || "TAKEAWAY") : `KEY INSIGHT 0${scene.index}`}
+            </span>
+            <h1 style={{ margin: 0, fontFamily: theme.fontDisplay, fontSize: isSquare || isLandscape ? 46 : 52, lineHeight: 1.16, fontWeight: 700, color: theme.textPrimary }}>
+              {scene.slideTitle}
+            </h1>
+            <div style={{ width: 84, height: 4, backgroundColor: theme.accent, borderRadius: 999 }} />
+            <p style={{ margin: 0, fontSize: 32, lineHeight: 1.5, color: theme.textSecondary, maxWidth: "90%" }}>
+              {scene.slideBody}
+            </p>
+          </div>
         ) : (
           <div
             style={{

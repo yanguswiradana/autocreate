@@ -1836,36 +1836,115 @@ export function ChatHarnessStudio() {
           {/* VIEW: TEMPLATE */}
           {navView === "template" && (
             <section className="flex-1 overflow-y-auto p-6">
-              <div className="mx-auto max-w-[880px] space-y-4">
-                <div>
-                  <h2 className="text-lg font-bold">Preset Visual Studio</h2>
-                  <p className="text-xs text-[#a1a1aa]">
-                    Pilih preset tema visual di bawah untuk langsung memulai chat terpandu dengan tema tersebut.
-                  </p>
+              <div className="mx-auto max-w-[960px] space-y-5">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div>
+                    <h2 className="text-lg font-bold">Preset Visual Studio (6 Gaya)</h2>
+                    <p className="text-xs text-[#a1a1aa]">
+                      Pilih preset tema visual di bawah untuk langsung memulai chat terpandu dengan tema tersebut.
+                    </p>
+                  </div>
+                  {draft.brandkit.enabled && (
+                    <span className="rounded-full border border-[#ddf77b]/40 bg-[#ddf77b]/10 px-3 py-1 text-[11px] font-semibold text-[#ddf77b]">
+                      Brandkit Aktif: {draft.brandkit.handle || draft.brandkit.brandName || "Custom"}
+                    </span>
+                  )}
                 </div>
-                <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-                  {PRESET_OPTIONS.map((p) => (
-                    <div
-                      key={p.id}
-                      className="flex flex-col justify-between rounded-[14px] border border-white/10 bg-[#131316] p-4"
-                    >
-                      <div>
-                        <span className="font-mono text-[11px] text-[#ddf77b]">{p.id}</span>
-                        <h3 className="mt-1 text-sm font-semibold">{p.label}</h3>
-                        <p className="mt-1 text-xs text-[#a1a1aa]">{p.desc}</p>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          resetChat(p.id);
-                          startGuidedMode("topic");
-                        }}
-                        className="mt-4 rounded-lg bg-[#1a1a1f] px-3 py-2 text-xs font-semibold text-[#f4f4f5] hover:bg-[#ddf77b] hover:text-[#181824]"
+
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                  {PRESET_OPTIONS.map((p) => {
+                    const useBk = draft.brandkit.enabled;
+                    const bg = useBk ? draft.brandkit.secondaryColor || p.bgPrimary : p.bgPrimary;
+                    const text = useBk ? draft.brandkit.accentColor || p.textPrimary : p.textPrimary;
+                    const accent = useBk ? draft.brandkit.primaryColor || p.accent : p.accent;
+                    const brandLabel = useBk
+                      ? draft.brandkit.handle || draft.brandkit.brandName || "@brand"
+                      : "@autocreate";
+
+                    return (
+                      <div
+                        key={p.id}
+                        className="flex flex-col justify-between rounded-[14px] border border-white/10 bg-[#131316] p-4"
                       >
-                        Pakai Preset Ini
-                      </button>
-                    </div>
-                  ))}
+                        <div className="space-y-3">
+                          {/* Mini Live Slide Preview */}
+                          <div
+                            className="relative flex h-36 flex-col justify-between overflow-hidden rounded-xl border border-white/10 p-3.5"
+                            style={{
+                              background: `linear-gradient(155deg, ${bg} 0%, ${p.bgSecondary} 100%)`,
+                              color: text,
+                              fontFamily:
+                                p.fontStyle === "serif"
+                                  ? "Georgia, 'Times New Roman', serif"
+                                  : "inherit",
+                            }}
+                          >
+                            <div className="flex items-center justify-between gap-2">
+                              <span
+                                className="text-[10px] font-semibold tracking-wide"
+                                style={{ color: accent }}
+                              >
+                                {brandLabel}
+                              </span>
+                              {useBk && draft.brandkit.logoDataUrl && (
+                                <img
+                                  src={draft.brandkit.logoDataUrl}
+                                  alt="Brand Logo"
+                                  className="h-5 w-5 rounded object-contain"
+                                />
+                              )}
+                            </div>
+
+                            <div className="space-y-1">
+                              <div
+                                className="h-1 w-8 rounded-full"
+                                style={{ backgroundColor: accent }}
+                              />
+                              <p className="text-sm font-bold leading-snug">
+                                Hook Utama Slide {p.label}
+                              </p>
+                              <p className="text-[10px] opacity-75">
+                                {draft.brandkit.tagline && useBk
+                                  ? draft.brandkit.tagline
+                                  : "Contoh tipografi & kontras warna."}
+                              </p>
+                            </div>
+                          </div>
+
+                          <div>
+                            <div className="flex items-center justify-between gap-2">
+                              <h3 className="text-sm font-semibold text-[#f4f4f5]">{p.label}</h3>
+                              <div className="flex items-center gap-1">
+                                {[p.bgPrimary, p.accent, p.textPrimary].map((hex, i) => (
+                                  <span
+                                    key={i}
+                                    title={hex}
+                                    className="h-3 w-3 rounded-full border border-white/20"
+                                    style={{ backgroundColor: hex }}
+                                  />
+                                ))}
+                              </div>
+                            </div>
+                            <p className="mt-1 text-xs text-[#a1a1aa]">{p.desc}</p>
+                            <span className="mt-1 inline-block font-mono text-[10px] text-[#63636b]">
+                              {p.id} · {p.fontStyle}
+                            </span>
+                          </div>
+                        </div>
+
+                        <button
+                          type="button"
+                          onClick={() => {
+                            resetChat(p.id);
+                            startGuidedMode("topic");
+                          }}
+                          className="mt-4 rounded-lg bg-[#1a1a1f] px-3 py-2 text-xs font-semibold text-[#f4f4f5] transition hover:bg-[#ddf77b] hover:text-[#181824]"
+                        >
+                          Pakai Preset Ini
+                        </button>
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
             </section>

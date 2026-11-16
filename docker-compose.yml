@@ -1,0 +1,139 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: autocreate-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: autocreate
+      POSTGRES_USER: autocreate
+      POSTGRES_PASSWORD: autocreate_secret
+    ports:
+      - "5432:5432"
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U autocreate -d autocreate"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  renderer:
+    build:
+      context: .
+      dockerfile: Dockerfile.renderer
+    container_name: autocreate-renderer
+    restart: unless-stopped
+    shm_size: "2gb"
+    env_file:
+      - .env
+    environment:
+      PORT: "4173"
+      HOST: "0.0.0.0"
+    ports:
+      - "4173:4173"
+    volumes:
+      - outputs_data:/app/outputs
+
+  api:
+    build:
+      context: ./apps/api
+      dockerfile: Dockerfile
+    container_name: autocreate-api
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      renderer:
+        condition: service_started
+    environment:
+      APP_ENV: local
+      APP_DEBUG: "true"
+      APP_KEY: base64:VjSenH8/IFlcO/4H+L3snEk3HLut7JufcvB1QaXW7hE=
+      APP_URL: http://localhost:8001
+      DB_CONNECTION: pgsql
+      DB_HOST: postgres
+      DB_PORT: "5432"
+      DB_DATABASE: autocreate
+      DB_USERNAME: autocreate
+      DB_PASSWORD: autocreate_secret
+      QUEUE_CONNECTION: database
+      RENDERER_URL: http://renderer:4173
+      API_INTERNAL_URL: http://api:8000
+      VIDEO_AI_URL: http://video-ai:8090
+      SHARED_MEDIA_DIR: /app/shared_media
+    ports:
+      - "8001:8000"
+    volumes:
+      - outputs_data:/var/www/html/storage/app/outputs
+      - shared_media:/app/shared_media
+    healthcheck:
+      test: ["CMD-SHELL", "php -r 'exit(@file_get_contents(\"http://127.0.0.1:8000/api/health\") ? 0 : 1);'"]
+      interval: 5s
+      timeout: 5s
+      retries: 15
+      start_period: 10s
+
+  api-worker:
+    build:
+      context: ./apps/api
+      dockerfile: Dockerfile
+    container_name: autocreate-api-worker
+    restart: unless-stopped
+    command: ["php", "artisan", "queue:work", "--tries=2", "--timeout=300"]
+    depends_on:
+      api:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+      renderer:
+        condition: service_started
+    environment:
+      APP_ENV: local
+      APP_KEY: base64:VjSenH8/IFlcO/4H+L3snEk3HLut7JufcvB1QaXW7hE=
+      DB_CONNECTION: pgsql
+      DB_HOST: postgres
+      DB_PORT: "5432"
+      DB_DATABASE: autocreate
+      DB_USERNAME: autocreate
+      DB_PASSWORD: autocreate_secret
+      QUEUE_CONNECTION: database
+      RENDERER_URL: http://renderer:4173
+      API_INTERNAL_URL: http://api:8000
+      VIDEO_AI_URL: http://video-ai:8090
+      SHARED_MEDIA_DIR: /app/shared_media
+    volumes:
+      - outputs_data:/var/www/html/storage/app/outputs
+      - shared_media:/app/shared_media
+
+  video-ai:
+    build:
+      context: ./services/video-ai
+      dockerfile: Dockerfile
+    container_name: autocreate-video-ai
+    restart: unless-stopped
+    environment:
+      WHISPER_MODEL: tiny
+    volumes:
+      - shared_media:/app/shared_media
+
+  web:
+    build:
+      context: ./apps/web
+      dockerfile: Dockerfile
+    container_name: autocreate-web
+    restart: unless-stopped
+    depends_on:
+      api:
+        condition: service_healthy
+    environment:
+      NEXT_PUBLIC_API_URL: http://localhost:8001
+      NEXT_PUBLIC_RENDERER_URL: http://localhost:4173
+      INTERNAL_API_URL: http://api:8000
+      INTERNAL_RENDERER_URL: http://renderer:4173
+    ports:
+      - "3001:3000"
+
+volumes:
+  pg_data:
+  outputs_data:
+  shared_media:

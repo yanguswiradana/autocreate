@@ -127,6 +127,7 @@ function collectZipEntries(jobDir: string): ZipEntry[] {
 }
 
 const PORT = Number(process.env.PORT || 4173);
+const HOST = process.env.HOST || "127.0.0.1";
 const PUBLIC_DIR = path.resolve(process.cwd(), "public");
 const OUTPUTS_DIR = path.resolve(process.cwd(), "outputs");
 
@@ -346,6 +347,17 @@ const server = http.createServer(async (req, res) => {
               bgm: brief.bgm ? String(brief.bgm) : undefined,
               bgmVolume:
                 typeof brief.bgmVolume === "number" ? brief.bgmVolume : undefined,
+              apiKeys:
+                brief.apiKeys && typeof brief.apiKeys === "object"
+                  ? {
+                      gemini: brief.apiKeys.gemini
+                        ? String(brief.apiKeys.gemini)
+                        : undefined,
+                      opencode: brief.apiKeys.opencode
+                        ? String(brief.apiKeys.opencode)
+                        : undefined,
+                    }
+                  : undefined,
               customSceneImages:
                 brief.customSceneImages &&
                 typeof brief.customSceneImages === "object"
@@ -838,6 +850,6 @@ const server = http.createServer(async (req, res) => {
   res.end("Not found");
 });
 
-server.listen(PORT, "127.0.0.1", () => {
-  console.log(`\nAutocreate Studio UI berjalan di: http://127.0.0.1:${PORT}\n`);
+server.listen(PORT, HOST, () => {
+  console.log(`\nAutocreate Studio UI berjalan di: http://${HOST}:${PORT}\n`);
 });

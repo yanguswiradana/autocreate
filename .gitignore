@@ -2,5 +2,10 @@ node_modules/
 dist/
 outputs/
 .env
+**/.env
+!**/.env.example
 .remotion/
 topics.json
+__pycache__/
+**/__pycache__/
+*.pyc

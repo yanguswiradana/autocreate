@@ -24,7 +24,8 @@ export interface GeneratedVisuals {
 export async function generateRawVisuals(
   blueprint: ContentBlueprint,
   rawDir: string,
-  providerOverride?: VisualProvider
+  providerOverride?: VisualProvider,
+  geminiApiKey?: string
 ): Promise<GeneratedVisuals> {
   fs.mkdirSync(rawDir, { recursive: true });
 
@@ -43,7 +44,7 @@ export async function generateRawVisuals(
 
     if (provider === "gemini") {
       try {
-        await generateWithGeminiImagen(scene.visualPrompt, outSvgOrPng);
+        await generateWithGeminiImagen(scene.visualPrompt, outSvgOrPng, geminiApiKey);
         sceneImages[scene.index] = outSvgOrPng;
         continue;
       } catch (err) {
@@ -108,9 +109,10 @@ export async function generateRawVisuals(
 
 async function generateWithGeminiImagen(
   prompt: string,
-  outputPath: string
+  outputPath: string,
+  overrideKey?: string
 ): Promise<void> {
-  const apiKey = process.env.GEMINI_API_KEY;
+  const apiKey = overrideKey || process.env.GEMINI_API_KEY;
   if (!apiKey || apiKey === "your_gemini_api_key_here") {
     throw new Error("GEMINI_API_KEY belum diset.");
   }

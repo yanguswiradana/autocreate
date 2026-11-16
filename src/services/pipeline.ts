@@ -43,6 +43,11 @@ export interface ContentJobOptions {
   referenceUrls?: string[];
   /** Optional pre-bundled Remotion serveUrl to speed up batch runs */
   serveUrl?: string;
+  /** Optional BYOK API keys passed per-job from encrypted workspace store */
+  apiKeys?: {
+    gemini?: string;
+    opencode?: string;
+  };
 }
 
 export async function bundleRemotionProject(): Promise<string> {
@@ -121,6 +126,7 @@ export async function runContentJob(
     brandkit,
     referenceContext,
     mock,
+    apiKeys: options.apiKeys,
   });
 
   fs.mkdirSync(jobDir, { recursive: true });
@@ -137,7 +143,12 @@ export async function runContentJob(
 
   console.log(`[2/4] Menghasilkan Raw Visual Assets...`);
   const rawDir = path.join(jobDir, "raw_images");
-  const visuals = await generateRawVisuals(blueprint, rawDir, visualProvider);
+  const visuals = await generateRawVisuals(
+    blueprint,
+    rawDir,
+    visualProvider,
+    options.apiKeys?.gemini
+  );
 
   const sceneBgDataUris: Record<number, string> = {};
   for (const [idxStr, filePath] of Object.entries(visuals.sceneImages)) {

@@ -22,6 +22,10 @@ export interface GenerateBlueprintOptions {
   brandkit?: BrandkitOverride;
   referenceContext?: string;
   mock?: boolean;
+  apiKeys?: {
+    gemini?: string;
+    opencode?: string;
+  };
 }
 
 type AiProviderMode = "auto" | "gemini" | "opencode";
@@ -45,6 +49,7 @@ export async function generateBlueprint(
     brandkit,
     referenceContext,
     mock = false,
+    apiKeys,
   } = options;
 
   const seriesConfig = getSeriesPreset(series);
@@ -120,25 +125,27 @@ Format JSON yang wajib diikuti:
 }`;
 
   const mode = (process.env.AI_PROVIDER as AiProviderMode) || "auto";
-  const hasGemini = isConfigured(process.env.GEMINI_API_KEY, "your_gemini_api_key_here");
-  const hasOpenCode = isConfigured(process.env.OPENCODE_API_KEY, "your_opencode_api_key_here");
+  const geminiKey = apiKeys?.gemini || process.env.GEMINI_API_KEY;
+  const opencodeKey = apiKeys?.opencode || process.env.OPENCODE_API_KEY;
+  const hasGemini = isConfigured(geminiKey, "your_gemini_api_key_here");
+  const hasOpenCode = isConfigured(opencodeKey, "your_opencode_api_key_here");
 
   let bp: ContentBlueprint;
 
   if (mode === "opencode") {
-    bp = await generateWithOpenCode(systemPrompt, userPrompt);
+    bp = await generateWithOpenCode(systemPrompt, userPrompt, opencodeKey);
   } else if (mode === "gemini") {
-    bp = await generateWithGemini(systemPrompt, userPrompt);
+    bp = await generateWithGemini(systemPrompt, userPrompt, geminiKey);
   } else if (hasGemini) {
     try {
-      bp = await generateWithGemini(systemPrompt, userPrompt);
+      bp = await generateWithGemini(systemPrompt, userPrompt, geminiKey);
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       if (hasOpenCode) {
         console.warn(
           `[AI Director] Gemini gagal (${msg}), beralih ke fallback OpenCode Go...`
         );
-        bp = await generateWithOpenCode(systemPrompt, userPrompt);
+        bp = await generateWithOpenCode(systemPrompt, userPrompt, opencodeKey);
       } else {
         console.warn(
           `[AI Director] Gemini gagal dan OPENCODE_API_KEY belum ada di .env, fallback tidak aktif.`
@@ -148,7 +155,7 @@ Format JSON yang wajib diikuti:
     }
   } else if (hasOpenCode) {
     console.log("[AI Director] GEMINI_API_KEY kosong, menggunakan OpenCode Go...");
-    bp = await generateWithOpenCode(systemPrompt, userPrompt);
+    bp = await generateWithOpenCode(systemPrompt, userPrompt, opencodeKey);
   } else {
     throw new Error(
       "GEMINI_API_KEY dan OPENCODE_API_KEY belum diisi di .env. Jalankan dengan --mock untuk testing tanpa API key."
@@ -187,9 +194,10 @@ function isConfigured(val: string | undefined, placeholder: string): boolean {
 
 async function generateWithGemini(
   systemPrompt: string,
-  userPrompt: string
+  userPrompt: string,
+  overrideKey?: string
 ): Promise<ContentBlueprint> {
-  const apiKey = process.env.GEMINI_API_KEY;
+  const apiKey = overrideKey || process.env.GEMINI_API_KEY;
   if (!isConfigured(apiKey, "your_gemini_api_key_here")) {
     throw new Error("GEMINI_API_KEY belum diisi.");
   }
@@ -216,9 +224,10 @@ async function generateWithGemini(
 
 async function generateWithOpenCode(
   systemPrompt: string,
-  userPrompt: string
+  userPrompt: string,
+  overrideKey?: string
 ): Promise<ContentBlueprint> {
-  const apiKey = process.env.OPENCODE_API_KEY;
+  const apiKey = overrideKey || process.env.OPENCODE_API_KEY;
   if (!isConfigured(apiKey, "your_opencode_api_key_here")) {
     throw new Error("OPENCODE_API_KEY belum diisi.");
   }

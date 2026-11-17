@@ -924,7 +924,9 @@ export function ChatHarnessStudio() {
                 }
               }}
               className={`flex items-center gap-2.5 rounded-[10px] px-2.5 py-2 text-left text-[13.5px] transition ${
-                navView === item.id
+                (item.id === "chat"
+                  ? navView === "chat" && previewJobId === null
+                  : navView === item.id)
                   ? "bg-white/[0.07] font-semibold text-[#f4f4f5]"
                   : "font-medium text-[#a1a1aa] hover:bg-white/[0.04] hover:text-[#f4f4f5]"
               }`}

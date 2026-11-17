@@ -2222,17 +2222,134 @@ export function ChatHarnessStudio() {
             </section>
           )}
 
-          {/* VIEW: RENDER / RIWAYAT */}
-          {(navView === "render" || navView === "riwayat") && (
+          {/* VIEW: RENDER (Galeri Hasil Jadi & Antrean Aktif) */}
+          {navView === "render" && (() => {
+            const renderJobs = filteredJobs.filter((j) => j.status !== "failed");
+            return (
+              <section className="flex-1 overflow-y-auto p-6">
+                <div className="mx-auto max-w-[960px] space-y-4">
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <div>
+                      <h2 className="text-lg font-bold">Galeri Hasil Render</h2>
+                      <p className="text-xs text-[#a1a1aa]">
+                        Preview visual slide/poster yang sudah selesai dan antrean yang sedang diproses.
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <input
+                        value={historySearch}
+                        onChange={(e) => setHistorySearch(e.target.value)}
+                        placeholder="Cari topik atau preset..."
+                        className="rounded-lg border border-white/10 bg-[#131316] px-3 py-1.5 text-xs text-[#f4f4f5] placeholder-[#63636b] outline-none focus:border-[#ddf77b]/60"
+                      />
+                      <button
+                        type="button"
+                        onClick={loadJobs}
+                        className="rounded-lg border border-white/10 bg-[#1a1a1f] px-3 py-1.5 text-xs font-medium hover:border-white/25"
+                      >
+                        Refresh
+                      </button>
+                    </div>
+                  </div>
+
+                  {renderJobs.length === 0 ? (
+                    <div className="rounded-[14px] border border-white/10 bg-[#131316] p-8 text-center text-xs text-[#a1a1aa]">
+                      Belum ada hasil render aktif atau selesai.
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                      {renderJobs.map((j) => {
+                        const folder = j.folder_name || j.manifest?.jobId || "";
+                        const slides = j.manifest?.slides || j.manifest?.outputs?.carouselSlides || [];
+                        const poster = j.manifest?.poster || j.manifest?.outputs?.poster || null;
+                        const thumbRel = slides[0] || poster;
+                        const thumbUrl = folder && thumbRel
+                          ? `/outputs/${encodeURIComponent(folder)}/${thumbRel.replace(/^\/+/, "")}`
+                          : null;
+
+                        return (
+                          <div
+                            key={j.id}
+                            className={`flex flex-col justify-between overflow-hidden rounded-[14px] border bg-[#131316] transition ${
+                              previewJobId === j.id
+                                ? "border-[#ddf77b]"
+                                : "border-white/10 hover:border-white/25"
+                            }`}
+                          >
+                            <div className="relative h-44 w-full bg-[#0d0d10]">
+                              {thumbUrl ? (
+                                <img
+                                  src={thumbUrl}
+                                  alt={j.topic}
+                                  className="h-full w-full object-cover"
+                                />
+                              ) : (
+                                <div className="flex h-full w-full items-center justify-center px-4 text-center text-xs text-[#a1a1aa]">
+                                  {j.status === "completed"
+                                    ? "Output Video MP4 (Klik Preview)"
+                                    : "Sedang merender di Remotion..."}
+                                </div>
+                              )}
+                              <span
+                                className={`absolute right-2.5 top-2.5 rounded-full px-2 py-0.5 text-[10px] font-semibold backdrop-blur ${
+                                  j.status === "completed"
+                                    ? "bg-[#ddf77b]/90 text-[#181824]"
+                                    : "bg-amber-400/90 text-[#181824]"
+                                }`}
+                              >
+                                {j.status}
+                              </span>
+                            </div>
+
+                            <div className="flex flex-1 flex-col justify-between p-4">
+                              <div>
+                                <div className="flex items-center justify-between text-[11px] text-[#a1a1aa]">
+                                  <span className="font-mono">#{j.id}</span>
+                                  <span>{j.aspect_ratio} · {j.preset.replace(/_/g, " ")}</span>
+                                </div>
+                                <h3 className="mt-1.5 line-clamp-2 text-sm font-semibold text-[#f4f4f5]">
+                                  {j.topic}
+                                </h3>
+                              </div>
+
+                              <div className="mt-4 flex flex-wrap gap-2">
+                                <button
+                                  type="button"
+                                  onClick={() => setPreviewJobId(j.id)}
+                                  className="flex-1 rounded-lg bg-[#ddf77b] px-3 py-1.5 text-xs font-bold text-[#181824] hover:opacity-90"
+                                >
+                                  Buka Preview
+                                </button>
+                                {j.status === "completed" && folder && (
+                                  <a
+                                    href={`/renderer-api/outputs/${encodeURIComponent(folder)}/zip`}
+                                    download
+                                    className="rounded-lg border border-white/15 bg-[#1a1a1f] px-3 py-1.5 text-xs font-medium text-[#f4f4f5] hover:border-white/30"
+                                  >
+                                    ZIP
+                                  </a>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              </section>
+            );
+          })()}
+
+          {/* VIEW: RIWAYAT (Log Lengkap Semua Project + Retry / Remix / Hapus) */}
+          {navView === "riwayat" && (
             <section className="flex-1 overflow-y-auto p-6">
-              <div className="mx-auto max-w-[920px] space-y-4">
+              <div className="mx-auto max-w-[960px] space-y-4">
                 <div className="flex flex-wrap items-center justify-between gap-3">
                   <div>
-                    <h2 className="text-lg font-bold">
-                      {navView === "render" ? "Hasil Render" : "Riwayat Project PostgreSQL"}
-                    </h2>
+                    <h2 className="text-lg font-bold">Riwayat Project PostgreSQL</h2>
                     <p className="text-xs text-[#a1a1aa]">
-                      Klik salah satu project untuk membuka preview slide, video MP4, dan caption.
+                      Log lengkap semua job (berhasil, gagal, antrean), durasi proses, retry, remix, dan hapus.
                     </p>
                   </div>
                   <div className="flex items-center gap-2">
@@ -2254,23 +2371,21 @@ export function ChatHarnessStudio() {
 
                 {filteredJobs.length === 0 ? (
                   <div className="rounded-[14px] border border-white/10 bg-[#131316] p-8 text-center text-xs text-[#a1a1aa]">
-                    Belum ada project yang cocok.
+                    Belum ada riwayat project yang cocok.
                   </div>
                 ) : (
-                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                  <div className="space-y-2.5">
                     {filteredJobs.map((j) => (
-                      <button
+                      <div
                         key={j.id}
-                        type="button"
-                        onClick={() => setPreviewJobId(j.id)}
-                        className={`flex flex-col justify-between rounded-[14px] border p-4 text-left transition ${
+                        className={`flex flex-wrap items-center justify-between gap-3 rounded-[14px] border p-4 transition ${
                           previewJobId === j.id
                             ? "border-[#ddf77b] bg-[#ddf77b]/5"
-                            : "border-white/10 bg-[#131316] hover:border-white/25"
+                            : "border-white/10 bg-[#131316] hover:border-white/20"
                         }`}
                       >
-                        <div>
-                          <div className="mb-2 flex items-center justify-between text-[11px]">
+                        <div className="min-w-[240px] flex-1 space-y-1">
+                          <div className="flex flex-wrap items-center gap-2 text-[11px]">
                             <span className="font-mono text-[#a1a1aa]">#{j.id}</span>
                             <span
                               className={`rounded-full px-2 py-0.5 font-semibold ${
@@ -2283,15 +2398,56 @@ export function ChatHarnessStudio() {
                             >
                               {j.status}
                             </span>
+                            <span className="text-[#a1a1aa]">
+                              {j.aspect_ratio} · {j.preset.replace(/_/g, " ")} · {(j.outputs || []).join(", ")}
+                            </span>
+                            {typeof j.duration_ms === "number" && (
+                              <span className="font-mono text-[#63636b]">
+                                {(j.duration_ms / 1000).toFixed(1)}s
+                              </span>
+                            )}
                           </div>
-                          <h3 className="line-clamp-2 text-sm font-semibold text-[#f4f4f5]">
-                            {j.topic}
-                          </h3>
+                          <h3 className="text-sm font-semibold text-[#f4f4f5]">{j.topic}</h3>
+                          {j.status === "failed" && j.error_message && (
+                            <p className="line-clamp-2 text-xs text-rose-400">
+                              {j.error_message}
+                            </p>
+                          )}
                         </div>
-                        <p className="mt-3 text-[11px] text-[#a1a1aa]">
-                          {j.aspect_ratio} · {j.preset.replace(/_/g, " ")}
-                        </p>
-                      </button>
+
+                        <div className="flex flex-wrap items-center gap-2">
+                          {j.status === "failed" && (
+                            <button
+                              type="button"
+                              onClick={() => handleRetryJob(j.id)}
+                              className="rounded-lg bg-[#ddf77b] px-3 py-1.5 text-xs font-bold text-[#181824] hover:opacity-90"
+                            >
+                              Coba Lagi
+                            </button>
+                          )}
+                          <button
+                            type="button"
+                            onClick={() => setPreviewJobId(j.id)}
+                            className="rounded-lg border border-white/15 bg-[#1a1a1f] px-3 py-1.5 text-xs font-medium text-[#f4f4f5] hover:border-white/30"
+                          >
+                            Preview
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleRemixJob(j)}
+                            className="rounded-lg border border-white/10 bg-[#1a1a1f] px-3 py-1.5 text-xs text-[#d4d4d8] hover:border-[#ddf77b]/50"
+                          >
+                            Remix
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteJob(j.id)}
+                            className="rounded-lg border border-rose-500/30 px-3 py-1.5 text-xs text-rose-400 hover:bg-rose-500/10"
+                          >
+                            Hapus
+                          </button>
+                        </div>
+                      </div>
                     ))}
                   </div>
                 )}

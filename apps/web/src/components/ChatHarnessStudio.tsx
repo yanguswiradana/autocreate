@@ -914,8 +914,12 @@ export function ChatHarnessStudio() {
               key={item.id}
               type="button"
               onClick={() => {
-                setNavView(item.id);
-                setMobileNavOpen(false);
+                if (item.id === "chat") {
+                  resetChat();
+                } else {
+                  setNavView(item.id);
+                  setMobileNavOpen(false);
+                }
               }}
               className={`flex items-center gap-2.5 rounded-[10px] px-2.5 py-2 text-left text-[13.5px] transition ${
                 navView === item.id

@@ -315,7 +315,7 @@ export const DEFAULT_DRAFT_CONFIG: DraftConfig = {
   language: "id",
   visualProvider: "procedural",
   slides: 5,
-  mock: true,
+  mock: false,
   customSceneImages: {},
   brandkit: DEFAULT_BRANDKIT_CONFIG,
 };

@@ -52,6 +52,9 @@ export function ChatHarnessStudio() {
   const [historySearch, setHistorySearch] = useState("");
   const [showAllPresets, setShowAllPresets] = useState(false);
   const [showAllSeries, setShowAllSeries] = useState(false);
+  const [templatePreview, setTemplatePreview] = useState<
+    { kind: "preset"; id: string } | { kind: "series"; id: string } | null
+  >(null);
 
   const threadEndRef = useRef<HTMLDivElement | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
@@ -2002,9 +2005,9 @@ export function ChatHarnessStudio() {
               <div className="mx-auto max-w-[960px] space-y-5">
                 <div className="flex flex-wrap items-center justify-between gap-3">
                   <div>
-                    <h2 className="text-lg font-bold">Preset Visual Studio (6 Gaya)</h2>
+                    <h2 className="text-lg font-bold">Preset Visual Studio ({PRESET_OPTIONS.length} Tema)</h2>
                     <p className="text-xs text-[#a1a1aa]">
-                      Pilih preset tema visual di bawah untuk langsung memulai chat terpandu dengan tema tersebut.
+                      Galeri preview warna &amp; tipografi. Klik Preview Full untuk melihat contoh ukuran penuh — pemilihan tema dilakukan saat di Chat.
                     </p>
                   </div>
                   {draft.brandkit.enabled && (
@@ -2097,13 +2100,10 @@ export function ChatHarnessStudio() {
 
                         <button
                           type="button"
-                          onClick={() => {
-                            resetChat(p.id);
-                            startGuidedMode("topic");
-                          }}
+                          onClick={() => setTemplatePreview({ kind: "preset", id: p.id })}
                           className="mt-4 rounded-lg bg-[#1a1a1f] px-3 py-2 text-xs font-semibold text-[#f4f4f5] transition hover:bg-[#ddf77b] hover:text-[#181824]"
                         >
-                          Pakai Preset Ini
+                          Preview Full
                         </button>
                       </div>
                     );
@@ -2129,7 +2129,7 @@ export function ChatHarnessStudio() {
                   <div>
                     <h2 className="text-lg font-bold">Gaya &amp; Layout Konten ({SERIES_OPTIONS.length} Gaya)</h2>
                     <p className="text-xs text-[#a1a1aa]">
-                      Contoh tata letak slide tiap gaya/seri konten. Klik untuk langsung memulai chat dengan gaya tersebut.
+                      Contoh tata letak slide tiap gaya/seri konten. Klik Preview Full untuk melihat rangkaian slide-nya.
                     </p>
                   </div>
 
@@ -2195,13 +2195,10 @@ export function ChatHarnessStudio() {
 
                         <button
                           type="button"
-                          onClick={() => {
-                            resetChat(undefined, s.id);
-                            startGuidedMode("topic");
-                          }}
+                          onClick={() => setTemplatePreview({ kind: "series", id: s.id })}
                           className="mt-4 rounded-lg bg-[#1a1a1f] px-3 py-2 text-xs font-semibold text-[#f4f4f5] transition hover:bg-[#ddf77b] hover:text-[#181824]"
                         >
-                          Pakai Gaya Ini
+                          Preview Full
                         </button>
                       </div>
                     ))}
@@ -2372,6 +2369,212 @@ export function ChatHarnessStudio() {
                 className="rounded-lg bg-[#ddf77b] px-3.5 py-1.5 text-xs font-bold text-[#181824]"
               >
                 Mengerti
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {templatePreview && (
+        <div
+          onClick={() => setTemplatePreview(null)}
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-4"
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="w-full max-w-[760px] rounded-2xl border border-white/10 bg-[#0e0e10] p-5 text-[#f4f4f5] shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto"
+          >
+            {templatePreview.kind === "preset" && (() => {
+              const p = PRESET_OPTIONS.find((x) => x.id === templatePreview.id) ?? PRESET_OPTIONS[0];
+              const useBk = draft.brandkit.enabled;
+              const bg = useBk ? draft.brandkit.secondaryColor || p.bgPrimary : p.bgPrimary;
+              const text = useBk ? draft.brandkit.accentColor || p.textPrimary : p.textPrimary;
+              const accent = useBk ? draft.brandkit.primaryColor || p.accent : p.accent;
+              const brandLabel = useBk
+                ? draft.brandkit.handle || draft.brandkit.brandName || "@brand"
+                : "@autocreate";
+
+              return (
+                <>
+                  <div className="flex items-center justify-between border-b border-white/10 pb-3">
+                    <div>
+                      <h3 className="text-base font-bold">Preview Full · {p.label}</h3>
+                      <p className="text-xs text-[#a1a1aa]">{p.desc} ({p.id} · {p.fontStyle})</p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setTemplatePreview(null)}
+                      className="rounded-lg px-2.5 py-1 text-xs text-[#a1a1aa] hover:text-white"
+                    >
+                      ✕
+                    </button>
+                  </div>
+
+                  <div className="flex justify-center">
+                    <div
+                      className="flex aspect-[4/5] w-full max-w-[360px] flex-col justify-between rounded-2xl border border-white/15 p-6 shadow-2xl"
+                      style={{
+                        background: `linear-gradient(155deg, ${bg} 0%, ${p.bgSecondary} 100%)`,
+                        color: text,
+                        fontFamily:
+                          p.fontStyle === "serif"
+                            ? "Georgia, 'Times New Roman', serif"
+                            : "inherit",
+                      }}
+                    >
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-semibold tracking-wide" style={{ color: accent }}>
+                          {brandLabel}
+                        </span>
+                        <span className="rounded-full border border-white/15 px-2 py-0.5 font-mono text-[10px] opacity-75">
+                          01 / 05
+                        </span>
+                      </div>
+
+                      <div className="space-y-3">
+                        <span
+                          className="inline-block rounded-full px-3 py-1 text-[10px] font-bold uppercase tracking-widest"
+                          style={{ backgroundColor: `${accent}22`, color: accent }}
+                        >
+                          INSIGHT BRIEF
+                        </span>
+                        <h4 className="text-2xl font-bold leading-tight">
+                          Contoh Hook Utama Tema {p.label}
+                        </h4>
+                        <div className="h-1 w-12 rounded-full" style={{ backgroundColor: accent }} />
+                        <p className="text-xs leading-relaxed opacity-80">
+                          Ini adalah simulasi tampilan tipografi, kontras warna, dan ruang napas slide 4:5 untuk preset {p.label}.
+                        </p>
+                      </div>
+
+                      <div className="flex items-center justify-between border-t border-white/10 pt-3 text-[10px] opacity-75">
+                        <span>
+                          {draft.brandkit.tagline && useBk
+                            ? draft.brandkit.tagline
+                            : "Geser untuk lanjut →"}
+                        </span>
+                        {useBk && draft.brandkit.logoDataUrl && (
+                          <img
+                            src={draft.brandkit.logoDataUrl}
+                            alt="Logo"
+                            className="h-6 w-6 rounded object-contain"
+                          />
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </>
+              );
+            })()}
+
+            {templatePreview.kind === "series" && (() => {
+              const s = SERIES_OPTIONS.find((x) => x.id === templatePreview.id) ?? SERIES_OPTIONS[0];
+              const slides =
+                s.id === "edukasi"
+                  ? [
+                      { num: "01", tag: "COVER · EDITORIAL", title: "Cara Praktis Mulai Hari Ini", body: "Ringkasan masalah utama & janji solusi singkat.", shape: "editorial" },
+                      { num: "02", tag: "POIN · BIG NUMBER", title: "Fokus 1 Kebiasaan Kecil", body: "Angka besar membantu pembaca langsung menangkap poin inti.", shape: "big_number" },
+                      { num: "03", tag: "CTA · SPLIT CARD", title: "Simpan & Praktikkan", body: "Kartu ber-border kiri untuk penutup & ajakan aksi.", shape: "split_card" },
+                    ]
+                  : s.id === "fakta_cepat"
+                    ? [
+                        { num: "01", tag: "HEADLINE", title: "Fakta Mengejutkan Minggu Ini", body: "Strip aksen tebal di atas ala breaking news.", shape: "news_headline" },
+                        { num: "02", tag: "ANGKA KUNCI", title: "78% Pengguna Mengalami Ini", body: "Angka besar menonjolkan data penting.", shape: "big_number" },
+                        { num: "03", tag: "KUTIPAN", title: "Kesimpulan Singkat", body: "Tanda kutip fokus di tengah untuk pesan penutup.", shape: "quote_focus" },
+                      ]
+                    : s.id === "storytelling"
+                      ? [
+                          { num: "01", tag: "OPENING", title: "Awal Mula Cerita", body: "Pembuka naratif yang membangun empati.", shape: "editorial" },
+                          { num: "02", tag: "PHOTO SPLIT", title: "Titik Balik Kejadian", body: "Foto di bagian atas + narasi cerita di bawah.", shape: "photo_top_split" },
+                          { num: "03", tag: "REFLEKSI", title: "Pelajaran Pentingnya", body: "Kutipan atau highlight box terpusat di akhir.", shape: "quote_focus" },
+                        ]
+                      : [
+                          { num: "01", tag: "PROBLEM", title: "Masalah yang Sering Terjadi", body: "Headline tebal menyorot pain point audiens.", shape: "news_headline" },
+                          { num: "02", tag: "SOLUSI", title: "Keunggulan Produk / Brand", body: "Kartu split dengan garis aksen di kiri.", shape: "split_card" },
+                          { num: "03", tag: "VISUAL + CTA", title: "Coba Sekarang Juga", body: "Foto produk di atas & tombol ajakan aksi di bawah.", shape: "photo_top_split" },
+                        ];
+
+              return (
+                <>
+                  <div className="flex items-center justify-between border-b border-white/10 pb-3">
+                    <div>
+                      <h3 className="text-base font-bold">Preview Full Gaya · {s.label}</h3>
+                      <p className="text-xs text-[#a1a1aa]">{s.desc} — Urutan struktur slide otomatis saat dipilih di Chat.</p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setTemplatePreview(null)}
+                      className="rounded-lg px-2.5 py-1 text-xs text-[#a1a1aa] hover:text-white"
+                    >
+                      ✕
+                    </button>
+                  </div>
+
+                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+                    {slides.map((sl) => (
+                      <div
+                        key={sl.num}
+                        className="flex aspect-[4/5] flex-col justify-between rounded-xl border border-white/10 bg-[#131316] p-4"
+                      >
+                        <div className="flex items-center justify-between text-[10px] text-[#63636b]">
+                          <span className="font-mono text-[#ddf77b]">{sl.tag}</span>
+                          <span className="font-mono">Slide {sl.num}</span>
+                        </div>
+
+                        {sl.shape === "photo_top_split" ? (
+                          <div className="space-y-2.5">
+                            <div className="flex h-24 w-full items-center justify-center rounded-lg bg-gradient-to-br from-[#232334] to-[#34344d] text-[10px] text-[#a1a1aa]">
+                              Foto / Ilustrasi Atas
+                            </div>
+                            <h4 className="text-sm font-bold text-[#f4f4f5]">{sl.title}</h4>
+                            <p className="text-[11px] leading-relaxed text-[#a1a1aa]">{sl.body}</p>
+                          </div>
+                        ) : sl.shape === "news_headline" ? (
+                          <div className="space-y-2 border-t-4 border-[#ddf77b] pt-3">
+                            <h4 className="text-sm font-bold text-[#f4f4f5]">{sl.title}</h4>
+                            <p className="text-[11px] leading-relaxed text-[#a1a1aa]">{sl.body}</p>
+                          </div>
+                        ) : sl.shape === "big_number" ? (
+                          <div className="space-y-2">
+                            <span className="font-mono text-3xl font-extrabold text-[#ddf77b]">{sl.num}</span>
+                            <h4 className="text-sm font-bold text-[#f4f4f5]">{sl.title}</h4>
+                            <p className="text-[11px] leading-relaxed text-[#a1a1aa]">{sl.body}</p>
+                          </div>
+                        ) : sl.shape === "split_card" ? (
+                          <div className="space-y-2 border-l-4 border-[#ddf77b] pl-3">
+                            <h4 className="text-sm font-bold text-[#f4f4f5]">{sl.title}</h4>
+                            <p className="text-[11px] leading-relaxed text-[#a1a1aa]">{sl.body}</p>
+                          </div>
+                        ) : sl.shape === "quote_focus" ? (
+                          <div className="space-y-2 text-center">
+                            <span className="font-serif text-3xl leading-none text-[#ddf77b]">“</span>
+                            <h4 className="text-sm font-bold text-[#f4f4f5]">{sl.title}</h4>
+                            <p className="text-[11px] leading-relaxed text-[#a1a1aa]">{sl.body}</p>
+                          </div>
+                        ) : (
+                          <div className="space-y-2">
+                            <h4 className="text-sm font-bold text-[#f4f4f5]">{sl.title}</h4>
+                            <div className="h-0.5 w-8 bg-[#ddf77b]" />
+                            <p className="text-[11px] leading-relaxed text-[#a1a1aa]">{sl.body}</p>
+                          </div>
+                        )}
+
+                        <span className="text-[10px] text-[#63636b]">@autocreate</span>
+                      </div>
+                    ))}
+                  </div>
+                </>
+              );
+            })()}
+
+            <div className="flex items-center justify-between border-t border-white/10 pt-3 text-[11px] text-[#a1a1aa]">
+              <span>Pemilihan tema &amp; gaya dilakukan di Langkah 2 saat berada di Chat.</span>
+              <button
+                type="button"
+                onClick={() => setTemplatePreview(null)}
+                className="rounded-lg bg-[#ddf77b] px-4 py-1.5 text-xs font-bold text-[#181824]"
+              >
+                Tutup Preview
               </button>
             </div>
           </div>

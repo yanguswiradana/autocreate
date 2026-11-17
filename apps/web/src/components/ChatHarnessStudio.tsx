@@ -430,17 +430,23 @@ export function ChatHarnessStudio() {
         suggestedOutputs?: string[] | null;
         suggestedAspectRatio?: string | null;
         suggestedVisualProvider?: string | null;
+        suggestedSlides?: number | null;
         suggestedSeries?: string | null;
         assistantReply?: string;
         source?: string;
       } | null = null;
 
-      setBusyHint("AI sedang memahami maksud pesan Anda...");
+      setBusyHint("AI sedang berpikir & memahami pesan Anda...");
       try {
         const res = await fetch("/api/chat-intent", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ message: raw, mock: draft.mock }),
+          body: JSON.stringify({
+            message: raw,
+            mock: draft.mock,
+            knownUrls: draft.referenceUrls,
+            history: messages.slice(-6).map((m) => ({ from: m.from, text: m.text })),
+          }),
         });
         if (res.ok) {
           intentData = await res.json();
@@ -451,9 +457,17 @@ export function ChatHarnessStudio() {
         setBusyHint(null);
       }
 
+      const detectedUrls =
+        intentData?.urls && intentData.urls.length > 0
+          ? intentData.urls
+          : urls.length > 0
+            ? urls
+            : draft.referenceUrls;
+
       if (intentData) {
         setDraft((prev) => ({
           ...prev,
+          referenceUrls: detectedUrls,
           outputs:
             Array.isArray(intentData?.suggestedOutputs) &&
             intentData.suggestedOutputs.length > 0
@@ -461,6 +475,7 @@ export function ChatHarnessStudio() {
               : prev.outputs,
           aspectRatio: intentData?.suggestedAspectRatio || prev.aspectRatio,
           visualProvider: intentData?.suggestedVisualProvider || prev.visualProvider,
+          slides: intentData?.suggestedSlides || prev.slides,
           series: intentData?.suggestedSeries || prev.series,
         }));
 
@@ -478,9 +493,6 @@ export function ChatHarnessStudio() {
           return;
         }
       }
-
-      const detectedUrls =
-        intentData?.urls && intentData.urls.length > 0 ? intentData.urls : urls;
 
       if (detectedUrls.length > 0) {
         if (intentData?.assistantReply) {
@@ -1876,6 +1888,23 @@ export function ChatHarnessStudio() {
                         </div>
                       );
                     })}
+                    {busyHint && (
+                      <div className="flex justify-start">
+                        <div className="flex w-full items-start gap-3">
+                          <span className="mt-0.5 inline-flex h-7 w-7 shrink-0 animate-pulse items-center justify-center rounded-lg bg-[#ddf77b] text-[11px] font-extrabold text-[#181824]">
+                            AS
+                          </span>
+                          <div className="flex items-center gap-3 rounded-2xl border border-[#ddf77b]/25 bg-[#131316] px-4 py-3 text-sm text-[#e4e4e7]">
+                            <span className="flex items-center gap-1" aria-hidden="true">
+                              <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-[#ddf77b] [animation-delay:-0.3s]" />
+                              <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-[#ddf77b] [animation-delay:-0.15s]" />
+                              <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-[#ddf77b]" />
+                            </span>
+                            <span className="text-xs text-[#d4d4d8]">{busyHint}</span>
+                          </div>
+                        </div>
+                      </div>
+                    )}
                     <div ref={threadEndRef} />
                   </div>
                 </section>

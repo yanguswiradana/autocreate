@@ -229,12 +229,17 @@ class ContentJobController extends Controller
         $validated = $request->validate([
             'message' => ['required', 'string', 'max:2000'],
             'mock' => ['sometimes', 'boolean'],
+            'knownUrls' => ['sometimes', 'array', 'max:4'],
+            'history' => ['sometimes', 'array', 'max:8'],
         ]);
 
         $raw = trim($validated['message']);
         $mock = (bool) ($validated['mock'] ?? false);
         preg_match_all('/https?:\/\/[^\s]+/i', $raw, $urlMatches);
-        $urls = array_values(array_unique($urlMatches[0] ?? []));
+        $msgUrls = array_values(array_unique($urlMatches[0] ?? []));
+        $knownUrls = array_values(array_filter(array_map('strval', $validated['knownUrls'] ?? [])));
+        $urls = array_values(array_unique(array_merge($knownUrls, $msgUrls)));
+        $history = $validated['history'] ?? [];
         $textOnly = trim((string) preg_replace('/https?:\/\/[^\s]+/i', '', $raw));
 
         $heuristic = $this->heuristicIntent($raw, $textOnly, $urls);
@@ -243,9 +248,17 @@ class ContentJobController extends Controller
             return response()->json($heuristic);
         }
 
-        $aiResult = $this->classifyIntentWithAi($raw, $urls);
+        $aiResult = $this->classifyIntentWithAi($raw, $urls, $history);
         if ($aiResult !== null) {
-            return response()->json(array_merge($heuristic, $aiResult, ['urls' => $urls]));
+            // Never lose known/detected URLs or get stuck in clarify when we already have URLs + direction
+            $merged = array_merge($heuristic, $aiResult, ['urls' => $urls]);
+            if (count($urls) > 0 && ($merged['intent'] ?? '') === 'clarify') {
+                $merged['intent'] = 'link_with_instruction';
+                if (empty($merged['cleanTopic'])) {
+                    $merged['cleanTopic'] = $heuristic['cleanTopic'];
+                }
+            }
+            return response()->json($merged);
         }
 
         return response()->json($heuristic);
@@ -260,6 +273,7 @@ class ContentJobController extends Controller
         $outputs = null;
         $aspectRatio = null;
         $visualProvider = null;
+        $slides = null;
         if (preg_match('/\b(reels|tiktok|shorts|video)\b/i', $lower)) {
             $outputs = ['video'];
             $aspectRatio = '9:16';
@@ -270,12 +284,15 @@ class ContentJobController extends Controller
             $outputs = ['poster'];
             $aspectRatio = '4:5';
         }
-        if (preg_match('/(background|backgroud|latar|gambar|foto|ilustrasi|visual)/i', $lower)) {
+        if (preg_match('/\b(3|5|7|10)\s*slide\b/i', $lower, $sm)) {
+            $slides = (int) $sm[1];
+        }
+        if (preg_match('/(background|backgroud|latar|gambar|foto|ilustrasi|visual|carikan)/i', $lower)) {
             $visualProvider = 'wikimedia';
         }
 
         if (count($urls) > 0) {
-            $cleanInstr = trim((string) preg_replace('/^(aku mau |tolong |coba )?(bikin|buat|buatkan)\s+(konten\s+)?(feed|carousel|video|reels|poster)?\s*(dari\s+)?(berita|link|artikel)?\s*(ini)?/i', '', $textOnly));
+            $cleanInstr = trim((string) preg_replace('/^(aku mau |saya ingin |tolong |coba )?(bikin|buat|buatkan|membuat)\s+(konten\s+)?(feed|carousel|video|reels|poster)?\s*(dari\s+)?(berita|link|artikel)?\s*(ini)?/i', '', $textOnly));
             $slugTopic = $this->slugTopicFromUrl($urls[0]);
             return [
                 'intent' => 'link_with_instruction',
@@ -285,11 +302,13 @@ class ContentJobController extends Controller
                 'suggestedOutputs' => $outputs,
                 'suggestedAspectRatio' => $aspectRatio,
                 'suggestedVisualProvider' => $visualProvider,
+                'suggestedSlides' => $slides,
                 'suggestedSeries' => null,
                 'assistantReply' => 'Oke, saya tangkap Anda ingin mengolah link referensi tersebut'
                     . ($outputs ? ' menjadi format ' . implode(', ', $outputs) . ($aspectRatio ? " ({$aspectRatio})" : '') : '')
+                    . ($slides ? " ({$slides} slide)" : '')
                     . ($visualProvider ? ' dengan pencarian foto internet (Wikimedia)' : '')
-                    . '. Saya baca isi linknya dulu ya.',
+                    . '. Saya proses linknya sekarang ya.',
                 'source' => 'heuristic',
             ];
         }
@@ -303,13 +322,14 @@ class ContentJobController extends Controller
                 'suggestedOutputs' => null,
                 'suggestedAspectRatio' => null,
                 'suggestedVisualProvider' => null,
+                'suggestedSlides' => null,
                 'suggestedSeries' => null,
                 'assistantReply' => 'Siap! Untuk mulai membuat konten, Anda bisa tulis topik utamanya, tempel link berita + arahan (misal: "buatkan feed dari berita ini https://..."), atau klik @Remix untuk mengolah proyek lama.',
                 'source' => 'heuristic',
             ];
         }
 
-        $cleaned = trim((string) preg_replace('/^(aku mau |tolong |coba )?(bikin|buat|buatkan)\s+(konten\s+)?(feed|carousel|video|reels|poster)?\s*(tentang\s+|soal\s+)?/i', '', $textOnly));
+        $cleaned = trim((string) preg_replace('/^(aku mau |saya ingin |tolong |coba )?(bikin|buat|buatkan|membuat)\s+(konten\s+)?(feed|carousel|video|reels|poster)?\s*(tentang\s+|soal\s+)?/i', '', $textOnly));
         return [
             'intent' => 'topic_brief',
             'urls' => [],
@@ -318,9 +338,11 @@ class ContentJobController extends Controller
             'suggestedOutputs' => $outputs,
             'suggestedAspectRatio' => $aspectRatio,
             'suggestedVisualProvider' => $visualProvider,
+            'suggestedSlides' => $slides,
             'suggestedSeries' => null,
             'assistantReply' => 'Siap, saya arahkan ke brief topik "' . ($cleaned !== '' ? $cleaned : $textOnly) . '"'
                 . ($outputs ? ' dengan format ' . implode(', ', $outputs) . ($aspectRatio ? " ({$aspectRatio})" : '') : '')
+                . ($slides ? " ({$slides} slide)" : '')
                 . ($visualProvider ? ' dan pencarian foto internet (Wikimedia)' : '')
                 . '. Silakan pilih opsi detail di bawah.',
             'source' => 'heuristic',
@@ -343,16 +365,28 @@ class ContentJobController extends Controller
         return ucwords($words);
     }
 
-    private function classifyIntentWithAi(string $raw, array $urls): ?array
+    private function classifyIntentWithAi(string $raw, array $urls, array $history = []): ?array
     {
         $keys = ProviderKey::activeMap();
         $models = ProviderKey::activeModels();
         $geminiKey = trim((string) ($keys['gemini'] ?? env('GEMINI_API_KEY', '')));
         $opencodeKey = trim((string) ($keys['opencode'] ?? env('OPENCODE_API_KEY', '')));
 
+        $historyLines = [];
+        foreach (array_slice($history, -6) as $h) {
+            if (is_array($h) && !empty($h['text'])) {
+                $role = ($h['from'] ?? '') === 'user' ? 'User' : 'AI';
+                $historyLines[] = "{$role}: " . mb_substr((string) $h['text'], 0, 260);
+            }
+        }
+        $historyBlock = count($historyLines) > 0 ? "\nRiwayat chat:\n" . implode("\n", $historyLines) . "\n" : '';
+        $urlsBlock = count($urls) > 0 ? "\nURL yang sudah diketahui: " . implode(', ', $urls) . "\n" : '';
+
         $prompt = "Analisis pesan user untuk studio pembuat konten sosmed. Kembalikan JSON valid dengan field:\n"
-            . '{"intent":"topic_brief|link_with_instruction|clarify","cleanTopic":"topik inti singkat atau kosong jika ada URL","instruction":"arahan gaya/sudut pandang user","suggestedOutputs":["carousel"|"video"|"poster"] atau null,"suggestedAspectRatio":"4:5"|"9:16"|"1:1"|"16:9" atau null,"suggestedSeries":"edukasi"|"fakta_cepat"|"storytelling"|"promo_brand" atau null,"assistantReply":"balasan 1-2 kalimat bahasa Indonesia menjelaskan pendekatan yang dipilih"}'
-            . "\n\nPesan user: " . $raw;
+            . '{"intent":"topic_brief|link_with_instruction|clarify","cleanTopic":"topik inti singkat atau kosong jika ada URL","instruction":"arahan gaya/sudut pandang user","suggestedOutputs":["carousel"|"video"|"poster"] atau null,"suggestedAspectRatio":"4:5"|"9:16"|"1:1"|"16:9" atau null,"suggestedSlides":3|5|7|10 atau null,"suggestedVisualProvider":"wikimedia"|"pollinations"|"procedural"|null,"suggestedSeries":"edukasi"|"fakta_cepat"|"storytelling"|"promo_brand" atau null,"assistantReply":"balasan 1-2 kalimat bahasa Indonesia menjelaskan pendekatan yang dipilih"}'
+            . "\nAturan penting: Jika URL sudah diketahui, JANGAN pilih clarify — pilih link_with_instruction agar link langsung diekstrak & lanjut ke pemilihan opsi. Jika user minta dicarikan foto/gambar dari internet, isi suggestedVisualProvider=\"wikimedia\"."
+            . $historyBlock . $urlsBlock
+            . "\nPesan terbaru user: " . $raw;
 
         try {
             if ($geminiKey !== '') {

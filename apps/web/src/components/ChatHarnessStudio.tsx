@@ -172,6 +172,8 @@ export function ChatHarnessStudio() {
   const resetChat = (presetOverride?: string, seriesOverride?: string) => {
     setNavView("chat");
     setStep("idle");
+    setPreviewJobId(null);
+    setBusyHint(null);
     setDraft({
       ...DEFAULT_DRAFT_CONFIG,
       preset: presetOverride || draft.preset,

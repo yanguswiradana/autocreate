@@ -424,6 +424,7 @@ export function ChatHarnessStudio() {
 
       let intentData: {
         intent?: string;
+        action?: string;
         urls?: string[];
         cleanTopic?: string;
         instruction?: string;
@@ -432,6 +433,8 @@ export function ChatHarnessStudio() {
         suggestedVisualProvider?: string | null;
         suggestedSlides?: number | null;
         suggestedSeries?: string | null;
+        suggestedPreset?: string | null;
+        suggestedLanguage?: string | null;
         assistantReply?: string;
         source?: string;
       } | null = null;
@@ -444,6 +447,7 @@ export function ChatHarnessStudio() {
           body: JSON.stringify({
             message: raw,
             mock: draft.mock,
+            step,
             knownUrls: draft.referenceUrls,
             history: messages.slice(-6).map((m) => ({ from: m.from, text: m.text })),
           }),
@@ -477,6 +481,8 @@ export function ChatHarnessStudio() {
           visualProvider: intentData?.suggestedVisualProvider || prev.visualProvider,
           slides: intentData?.suggestedSlides || prev.slides,
           series: intentData?.suggestedSeries || prev.series,
+          preset: intentData?.suggestedPreset || prev.preset,
+          language: intentData?.suggestedLanguage || prev.language,
         }));
 
         if (intentData.intent === "clarify") {
@@ -541,18 +547,106 @@ export function ChatHarnessStudio() {
       return;
     }
 
-    // In awaiting_config or awaiting_confirm, treat text as arahan/revisi brief (not overwriting topic)
+    // In awaiting_config or awaiting_confirm, analyze whether user adds a URL, updates options, triggers generate, or adds instruction
     pushMessages({ id: uid(), from: "user", text: raw });
     setComposerText("");
-    setDraft((prev) => ({
-      ...prev,
-      instruction: prev.instruction ? `${prev.instruction}; ${raw}` : raw,
-    }));
+
+    const newUrls = extractUrlsFromText(raw);
+    if (newUrls.length > 0) {
+      const mergedUrls = Array.from(new Set([...draft.referenceUrls, ...newUrls]));
+      await checkUrlsAndAdvance(
+        mergedUrls,
+        draft.topic,
+        false,
+        raw.replace(/https?:\/\/[^\s]+/gi, "").trim(),
+        draft.topic
+      );
+      return;
+    }
+
+    let followData: {
+      intent?: string;
+      action?: string;
+      instruction?: string;
+      suggestedOutputs?: string[] | null;
+      suggestedAspectRatio?: string | null;
+      suggestedVisualProvider?: string | null;
+      suggestedSlides?: number | null;
+      suggestedSeries?: string | null;
+      suggestedPreset?: string | null;
+      suggestedLanguage?: string | null;
+      assistantReply?: string;
+      source?: string;
+    } | null = null;
+
+    setBusyHint("AI sedang menyesuaikan konfigurasi...");
+    try {
+      const res = await fetch("/api/chat-intent", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          message: raw,
+          mock: draft.mock,
+          step,
+          knownUrls: draft.referenceUrls,
+          history: messages.slice(-6).map((m) => ({ from: m.from, text: m.text })),
+        }),
+      });
+      if (res.ok) {
+        followData = await res.json();
+      }
+    } catch {
+      // fallback below
+    } finally {
+      setBusyHint(null);
+    }
+
+    const extraInstr = followData?.instruction?.trim();
+    const nextDraft: DraftConfig = {
+      ...draft,
+      outputs:
+        Array.isArray(followData?.suggestedOutputs) && followData.suggestedOutputs.length > 0
+          ? followData.suggestedOutputs
+          : draft.outputs,
+      aspectRatio: followData?.suggestedAspectRatio || draft.aspectRatio,
+      visualProvider: followData?.suggestedVisualProvider || draft.visualProvider,
+      slides: followData?.suggestedSlides || draft.slides,
+      series: followData?.suggestedSeries || draft.series,
+      preset: followData?.suggestedPreset || draft.preset,
+      language: followData?.suggestedLanguage || draft.language,
+      instruction:
+        extraInstr && followData?.action !== "generate"
+          ? draft.instruction
+            ? `${draft.instruction}; ${extraInstr}`
+            : extraInstr
+          : !followData
+            ? draft.instruction
+              ? `${draft.instruction}; ${raw}`
+              : raw
+            : draft.instruction,
+    };
+    setDraft(nextDraft);
+
+    if (followData?.action === "generate") {
+      pushMessages({
+        id: uid(),
+        from: "ai",
+        title: "Memulai Generate",
+        text: followData.assistantReply || "Siap, proses generate konten dimulai sekarang.",
+        meta: `intent: action_generate (${followData.source || "ai"})`,
+      });
+      await executeGenerate(nextDraft);
+      return;
+    }
+
     pushMessages({
       id: uid(),
       from: "ai",
-      title: "Arahan Brief Diperbarui",
-      text: "Arahan tambahan sudah dicatat terpisah dari topik. Silakan tinjau ringkasan dan klik Gas Generate Sekarang.",
+      title: "Konfigurasi & Arahan Diperbarui",
+      text:
+        followData?.assistantReply ||
+        "Arahan tambahan sudah dicatat terpisah dari topik. Silakan tinjau ringkasan dan klik Gas Generate Sekarang.",
+      meta: followData ? `intent: ${followData.intent || "update_config"} (${followData.source || "ai"})` : undefined,
       kind: "confirm_card",
     });
     setStep("awaiting_confirm");

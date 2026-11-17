@@ -50,6 +50,8 @@ export function ChatHarnessStudio() {
   const [jobs, setJobs] = useState<ContentJobRecord[]>([]);
   const [previewJobId, setPreviewJobId] = useState<number | null>(null);
   const [historySearch, setHistorySearch] = useState("");
+  const [showAllPresets, setShowAllPresets] = useState(false);
+  const [showAllSeries, setShowAllSeries] = useState(false);
 
   const threadEndRef = useRef<HTMLDivElement | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
@@ -164,12 +166,13 @@ export function ChatHarnessStudio() {
   const isPosterOnly =
     draft.outputs.length === 1 && draft.outputs[0] === "poster";
 
-  const resetChat = (presetOverride?: string) => {
+  const resetChat = (presetOverride?: string, seriesOverride?: string) => {
     setNavView("chat");
     setStep("idle");
     setDraft({
       ...DEFAULT_DRAFT_CONFIG,
       preset: presetOverride || draft.preset,
+      series: seriesOverride || draft.series,
       mock: draft.mock,
       brandkit: draft.brandkit,
     });
@@ -1466,53 +1469,13 @@ export function ChatHarnessStudio() {
                                             onClick={() =>
                                               setDraft((prev) => ({ ...prev, series: s.id }))
                                             }
-                                            className={`flex w-[148px] flex-col gap-1.5 rounded-xl border p-2 text-left transition ${
+                                            className={`rounded-lg border px-2.5 py-1.5 text-xs font-medium transition ${
                                               draft.series === s.id
-                                                ? "border-[#ddf77b] bg-[#ddf77b]/12 text-[#ddf77b]"
-                                                : "border-white/10 bg-[#1a1a1f] text-[#a1a1aa] hover:border-white/25 hover:text-white"
+                                                ? "border-[#ddf77b] bg-[#ddf77b]/15 text-[#ddf77b]"
+                                                : "border-white/10 bg-[#1a1a1f] text-[#a1a1aa] hover:border-white/25"
                                             }`}
                                           >
-                                            {/* Mini Preview Layout Gaya */}
-                                            <div className="flex h-12 w-full flex-col justify-between overflow-hidden rounded-md border border-white/10 bg-[#0d0d10] p-1.5">
-                                              {s.previewShape === "big_number" && (
-                                                <>
-                                                  <span className="font-mono text-[11px] font-bold leading-none text-[#ddf77b]">01</span>
-                                                  <div className="space-y-0.5">
-                                                    <div className="h-1 w-4/5 rounded bg-white/60" />
-                                                    <div className="h-1 w-3/5 rounded bg-white/25" />
-                                                  </div>
-                                                </>
-                                              )}
-                                              {s.previewShape === "news_headline" && (
-                                                <div className="flex h-full flex-col justify-between border-t-2 border-[#ddf77b] pt-1">
-                                                  <span className="w-fit rounded bg-[#ddf77b] px-1 text-[7px] font-bold text-[#181824]">HEADLINE</span>
-                                                  <div className="h-1.5 w-full rounded bg-white/70" />
-                                                  <div className="h-1 w-2/3 rounded bg-white/30" />
-                                                </div>
-                                              )}
-                                              {s.previewShape === "photo_top_split" && (
-                                                <div className="flex h-full flex-col justify-between">
-                                                  <div className="h-5 w-full rounded-sm bg-gradient-to-r from-[#272736] to-[#3a3a52]" />
-                                                  <div className="h-1 w-3/4 rounded bg-white/65" />
-                                                  <div className="h-1 w-1/2 rounded bg-white/30" />
-                                                </div>
-                                              )}
-                                              {s.previewShape === "split_card" && (
-                                                <div className="flex h-full flex-col justify-center gap-1 border-l-2 border-[#ddf77b] pl-1.5">
-                                                  <span className="text-[7px] font-semibold uppercase text-[#ddf77b]">{s.previewTag}</span>
-                                                  <div className="h-1 w-4/5 rounded bg-white/65" />
-                                                  <div className="h-1 w-3/5 rounded bg-white/30" />
-                                                </div>
-                                              )}
-                                            </div>
-                                            <div>
-                                              <span className="block text-[11px] font-semibold leading-tight">
-                                                {s.label}
-                                              </span>
-                                              <span className="mt-0.5 block text-[9.5px] leading-tight text-[#a1a1aa]">
-                                                {s.desc}
-                                              </span>
-                                            </div>
+                                            {s.label}
                                           </button>
                                         ))}
                                       </div>
@@ -2052,7 +2015,7 @@ export function ChatHarnessStudio() {
                 </div>
 
                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                  {PRESET_OPTIONS.map((p) => {
+                  {(showAllPresets ? PRESET_OPTIONS : PRESET_OPTIONS.slice(0, 3)).map((p) => {
                     const useBk = draft.brandkit.enabled;
                     const bg = useBk ? draft.brandkit.secondaryColor || p.bgPrimary : p.bgPrimary;
                     const text = useBk ? draft.brandkit.accentColor || p.textPrimary : p.textPrimary;
@@ -2145,6 +2108,118 @@ export function ChatHarnessStudio() {
                       </div>
                     );
                   })}
+                </div>
+
+                {PRESET_OPTIONS.length > 3 && (
+                  <div className="flex justify-center">
+                    <button
+                      type="button"
+                      onClick={() => setShowAllPresets((v) => !v)}
+                      className="rounded-lg border border-white/10 bg-[#131316] px-4 py-2 text-xs font-semibold text-[#d4d4d8] hover:border-[#ddf77b]/50 hover:text-[#ddf77b]"
+                    >
+                      {showAllPresets
+                        ? "Tampilkan Lebih Sedikit"
+                        : `Show More (${PRESET_OPTIONS.length - 3} Preset Lainnya)`}
+                    </button>
+                  </div>
+                )}
+
+                {/* GAYA & LAYOUT KONTEN (4 Gaya) */}
+                <div className="space-y-4 border-t border-white/10 pt-6">
+                  <div>
+                    <h2 className="text-lg font-bold">Gaya &amp; Layout Konten ({SERIES_OPTIONS.length} Gaya)</h2>
+                    <p className="text-xs text-[#a1a1aa]">
+                      Contoh tata letak slide tiap gaya/seri konten. Klik untuk langsung memulai chat dengan gaya tersebut.
+                    </p>
+                  </div>
+
+                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                    {(showAllSeries ? SERIES_OPTIONS : SERIES_OPTIONS.slice(0, 2)).map((s) => (
+                      <div
+                        key={s.id}
+                        className="flex flex-col justify-between rounded-[14px] border border-white/10 bg-[#131316] p-4"
+                      >
+                        <div className="space-y-3">
+                          <div className="flex h-32 w-full flex-col justify-between overflow-hidden rounded-xl border border-white/10 bg-[#0d0d10] p-3.5">
+                            {s.previewShape === "big_number" && (
+                              <>
+                                <span className="font-mono text-2xl font-extrabold leading-none text-[#ddf77b]">01</span>
+                                <div className="space-y-1">
+                                  <p className="text-xs font-bold text-[#f4f4f5]">{s.previewTitle}</p>
+                                  <div className="h-1.5 w-4/5 rounded bg-white/30" />
+                                  <div className="h-1.5 w-3/5 rounded bg-white/15" />
+                                </div>
+                              </>
+                            )}
+                            {s.previewShape === "news_headline" && (
+                              <div className="flex h-full flex-col justify-between border-t-4 border-[#ddf77b] pt-2">
+                                <span className="w-fit rounded bg-[#ddf77b] px-2 py-0.5 text-[10px] font-extrabold text-[#181824]">
+                                  {s.previewTag}
+                                </span>
+                                <div className="space-y-1">
+                                  <p className="text-xs font-bold text-[#f4f4f5]">{s.previewTitle}</p>
+                                  <div className="h-1.5 w-3/4 rounded bg-white/25" />
+                                </div>
+                              </div>
+                            )}
+                            {s.previewShape === "photo_top_split" && (
+                              <div className="flex h-full flex-col justify-between">
+                                <div className="flex h-14 w-full items-center justify-center rounded-md bg-gradient-to-r from-[#272736] to-[#3a3a52] text-[10px] text-[#a1a1aa]">
+                                  Area Foto Atas
+                                </div>
+                                <div className="space-y-1">
+                                  <p className="text-xs font-bold text-[#f4f4f5]">{s.previewTitle}</p>
+                                  <div className="h-1.5 w-2/3 rounded bg-white/25" />
+                                </div>
+                              </div>
+                            )}
+                            {s.previewShape === "split_card" && (
+                              <div className="flex h-full flex-col justify-center gap-1.5 border-l-4 border-[#ddf77b] pl-3">
+                                <span className="text-[10px] font-bold uppercase text-[#ddf77b]">
+                                  {s.previewTag}
+                                </span>
+                                <p className="text-xs font-bold text-[#f4f4f5]">{s.previewTitle}</p>
+                                <div className="h-1.5 w-3/4 rounded bg-white/25" />
+                              </div>
+                            )}
+                          </div>
+
+                          <div>
+                            <div className="flex items-center justify-between gap-2">
+                              <h3 className="text-sm font-semibold text-[#f4f4f5]">{s.label}</h3>
+                              <span className="font-mono text-[10px] text-[#63636b]">{s.id}</span>
+                            </div>
+                            <p className="mt-1 text-xs text-[#a1a1aa]">{s.desc}</p>
+                          </div>
+                        </div>
+
+                        <button
+                          type="button"
+                          onClick={() => {
+                            resetChat(undefined, s.id);
+                            startGuidedMode("topic");
+                          }}
+                          className="mt-4 rounded-lg bg-[#1a1a1f] px-3 py-2 text-xs font-semibold text-[#f4f4f5] transition hover:bg-[#ddf77b] hover:text-[#181824]"
+                        >
+                          Pakai Gaya Ini
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+
+                  {SERIES_OPTIONS.length > 2 && (
+                    <div className="flex justify-center">
+                      <button
+                        type="button"
+                        onClick={() => setShowAllSeries((v) => !v)}
+                        className="rounded-lg border border-white/10 bg-[#131316] px-4 py-2 text-xs font-semibold text-[#d4d4d8] hover:border-[#ddf77b]/50 hover:text-[#ddf77b]"
+                      >
+                        {showAllSeries
+                          ? "Tampilkan Lebih Sedikit"
+                          : `Show More (${SERIES_OPTIONS.length - 2} Gaya Lainnya)`}
+                      </button>
+                    </div>
+                  )}
                 </div>
               </div>
             </section>

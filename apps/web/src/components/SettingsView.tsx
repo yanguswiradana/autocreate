@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import {
   ASPECT_RATIOS,
+  BGM_OPTIONS,
   BRANDKIT_FONT_OPTIONS,
   BrandkitConfig,
   DEFAULT_BRANDKIT_CONFIG,
@@ -10,9 +11,11 @@ import {
   FAQ_ITEMS,
   LANGUAGES,
   PRESET_OPTIONS,
+  SERIES_OPTIONS,
   readImageFileAsDataUrl,
   SLIDE_COUNTS,
   VISUAL_PROVIDERS,
+  VOICE_OPTIONS,
 } from "@/types/studio";
 
 interface SettingsViewProps {
@@ -608,6 +611,68 @@ export function SettingsView({
                     </button>
                   ))}
                 </div>
+              </div>
+
+              <div className="sm:col-span-2">
+                <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wider text-[#a1a1aa]">
+                  Gaya Layout Default
+                </p>
+                <div className="flex flex-wrap gap-1.5">
+                  {SERIES_OPTIONS.map((s) => (
+                    <button
+                      key={s.id}
+                      type="button"
+                      onClick={() =>
+                        onUpdateDraft((prev) => ({ ...prev, series: s.id }))
+                      }
+                      className={`rounded-lg border px-2.5 py-1.5 text-xs font-medium ${
+                        draft.series === s.id
+                          ? "border-[#ddf77b] bg-[#ddf77b]/15 text-[#ddf77b]"
+                          : "border-white/10 bg-[#1a1a1f] text-[#a1a1aa]"
+                      }`}
+                    >
+                      {s.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wider text-[#a1a1aa]">
+                  Voiceover TTS Default
+                </p>
+                <select
+                  value={draft.voice}
+                  onChange={(e) =>
+                    onUpdateDraft((prev) => ({ ...prev, voice: e.target.value }))
+                  }
+                  className="w-full rounded-lg border border-white/10 bg-[#1a1a1f] px-3 py-2 text-xs text-[#f4f4f5] outline-none focus:border-[#ddf77b]/60"
+                >
+                  {VOICE_OPTIONS.map((v) => (
+                    <option key={v.id} value={v.id}>
+                      {v.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wider text-[#a1a1aa]">
+                  Musik Latar (BGM) Default
+                </p>
+                <select
+                  value={draft.bgm}
+                  onChange={(e) =>
+                    onUpdateDraft((prev) => ({ ...prev, bgm: e.target.value }))
+                  }
+                  className="w-full rounded-lg border border-white/10 bg-[#1a1a1f] px-3 py-2 text-xs text-[#f4f4f5] outline-none focus:border-[#ddf77b]/60"
+                >
+                  {BGM_OPTIONS.map((b) => (
+                    <option key={b.id} value={b.id}>
+                      {b.label}
+                    </option>
+                  ))}
+                </select>
               </div>
             </div>
           </div>

@@ -1321,6 +1321,28 @@ export function ChatHarnessStudio() {
                       </div>
                     </div>
                   </div>
+
+                  {/* Quick Prompt Chips */}
+                  <div className="mt-4 flex w-full max-w-[740px] flex-wrap items-center justify-center gap-2">
+                    <span className="text-[11px] text-[#63636b]">Coba cepat:</span>
+                    {[
+                      "Carousel 5 slide mitos vs fakta tentang kopi pakai foto internet",
+                      "Checklist 1:1 persiapan kerja remote tema clean paper",
+                      "Reels 9:16 edukasi manajemen waktu 3 slide",
+                      "Opini editorial tentang dampak AI di dunia kerja",
+                    ].map((presetPrompt) => (
+                      <button
+                        key={presetPrompt}
+                        type="button"
+                        onClick={() => {
+                          setComposerText(presetPrompt);
+                        }}
+                        className="rounded-full border border-white/10 bg-[#131316] px-3 py-1 text-[11px] text-[#a1a1aa] transition hover:border-[#ddf77b]/50 hover:text-[#ddf77b]"
+                      >
+                        {presetPrompt}
+                      </button>
+                    ))}
+                  </div>
                 </section>
               ) : (
                 <section className="flex-1 overflow-y-auto px-4 py-6 sm:px-6">
@@ -2567,6 +2589,13 @@ export function ChatHarnessStudio() {
                                 >
                                   Buka Preview
                                 </button>
+                                <button
+                                  type="button"
+                                  onClick={() => handleRemixJob(j)}
+                                  className="rounded-lg border border-white/15 bg-[#1a1a1f] px-3 py-1.5 text-xs font-medium text-[#d4d4d8] hover:border-[#ddf77b]/50"
+                                >
+                                  Clone
+                                </button>
                                 {j.status === "completed" && folder && (
                                   <a
                                     href={`/renderer-api/outputs/${encodeURIComponent(folder)}/zip`}
@@ -2711,6 +2740,15 @@ export function ChatHarnessStudio() {
                           >
                             Preview
                           </button>
+                          {j.status === "completed" && (j.folder_name || j.manifest?.jobId) && (
+                            <a
+                              href={`/renderer-api/outputs/${encodeURIComponent(j.folder_name || j.manifest?.jobId || "")}/zip`}
+                              download
+                              className="rounded-lg border border-white/15 bg-[#1a1a1f] px-3 py-1.5 text-xs font-medium text-[#ddf77b] hover:border-[#ddf77b]/50"
+                            >
+                              ZIP
+                            </a>
+                          )}
                           <button
                             type="button"
                             onClick={() => handleRemixJob(j)}

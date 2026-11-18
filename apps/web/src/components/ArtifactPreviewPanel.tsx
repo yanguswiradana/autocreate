@@ -3,16 +3,45 @@
 import { useState } from "react";
 import { ContentJobRecord, readImageFileAsDataUrl } from "@/types/studio";
 
+interface EditableScene {
+  index: number;
+  role: string;
+  slideTitle: string;
+  slideBody: string;
+  narrationText?: string;
+  visualPrompt?: string;
+  durationSeconds?: number;
+  layout?: string;
+}
+
+interface EditableBlueprint {
+  topic: string;
+  hookTitle: string;
+  subtitle: string;
+  brandTag?: string;
+  preset: string;
+  language?: string;
+  aspectRatio?: string;
+  series?: string;
+  videoTransition?: string;
+  scenes: EditableScene[];
+  caption: string;
+  hashtags: string[];
+  [key: string]: unknown;
+}
+
 interface ArtifactPreviewPanelProps {
   job: ContentJobRecord | null;
   onClose: () => void;
   onRerender: (
     id: number,
     customSceneImages?: Record<number, string>,
-    outputs?: string[]
+    outputs?: string[],
+    blueprint?: EditableBlueprint
   ) => Promise<void>;
   onDelete: (id: number) => Promise<void>;
   onRemix: (job: ContentJobRecord) => void;
+  onRetry?: (id: number) => Promise<void>;
 }
 
 export function ArtifactPreviewPanel({
@@ -21,12 +50,17 @@ export function ArtifactPreviewPanel({
   onRerender,
   onDelete,
   onRemix,
+  onRetry,
 }: ArtifactPreviewPanelProps) {
   const [activeTab, setActiveTab] = useState<"all" | "carousel" | "video" | "poster">("all");
   const [copied, setCopied] = useState(false);
-  const [busyAction, setBusyAction] = useState<"rerender" | "delete" | null>(null);
+  const [busyAction, setBusyAction] = useState<"rerender" | "delete" | "retry" | null>(null);
   const [stagedImages, setStagedImages] = useState<Record<number, string>>({});
   const [renderBust, setRenderBust] = useState<number>(0);
+  const [editOpen, setEditOpen] = useState(false);
+  const [loadingBp, setLoadingBp] = useState(false);
+  const [bpDraft, setBpDraft] = useState<EditableBlueprint | null>(null);
+  const [bpError, setBpError] = useState<string | null>(null);
 
   if (!job) return null;
 
@@ -54,19 +88,55 @@ export function ArtifactPreviewPanel({
     }
   };
 
-  const handleRerenderClick = async () => {
+  const handleRerenderClick = async (overrideBp?: EditableBlueprint) => {
     setBusyAction("rerender");
+    setBpError(null);
     try {
       const hasCustom = Object.keys(stagedImages).length > 0;
       await onRerender(
         job.id,
         hasCustom ? stagedImages : undefined,
-        job.outputs?.length ? job.outputs : ["carousel"]
+        job.outputs?.length ? job.outputs : ["carousel"],
+        overrideBp || (editOpen && bpDraft ? bpDraft : undefined)
       );
       if (hasCustom) {
         setStagedImages({});
       }
+      if (overrideBp) {
+        setEditOpen(false);
+      }
       setRenderBust(Date.now());
+    } finally {
+      setBusyAction(null);
+    }
+  };
+
+  const handleToggleEditText = async () => {
+    if (editOpen) {
+      setEditOpen(false);
+      return;
+    }
+    if (!folderName) return;
+    setEditOpen(true);
+    setLoadingBp(true);
+    setBpError(null);
+    try {
+      const res = await fetch(`/outputs/${encodeURIComponent(folderName)}/blueprint.json?t=${Date.now()}`);
+      if (!res.ok) throw new Error("blueprint.json tidak ditemukan");
+      const data = (await res.json()) as EditableBlueprint;
+      setBpDraft(data);
+    } catch (e) {
+      setBpError(e instanceof Error ? e.message : "Gagal memuat teks slide.");
+    } finally {
+      setLoadingBp(false);
+    }
+  };
+
+  const handleRetryClick = async () => {
+    if (!onRetry) return;
+    setBusyAction("retry");
+    try {
+      await onRetry(job.id);
     } finally {
       setBusyAction(null);
     }
@@ -161,11 +231,25 @@ export function ArtifactPreviewPanel({
           <button
             type="button"
             disabled={busyAction !== null}
-            onClick={handleRerenderClick}
+            onClick={() => handleRerenderClick()}
             className="rounded-lg border border-white/10 bg-[#131316] px-3 py-1.5 text-xs font-medium text-[#a1a1aa] hover:border-white/25 hover:text-white disabled:opacity-50"
           >
             {busyAction === "rerender" ? "Merender..." : "Re-render"}
           </button>
+          {folderName && (
+            <button
+              type="button"
+              disabled={busyAction !== null}
+              onClick={handleToggleEditText}
+              className={`rounded-lg border px-3 py-1.5 text-xs font-medium transition disabled:opacity-50 ${
+                editOpen
+                  ? "border-[#ddf77b] bg-[#ddf77b]/15 text-[#ddf77b]"
+                  : "border-white/10 bg-[#131316] text-[#a1a1aa] hover:border-white/25 hover:text-white"
+              }`}
+            >
+              {editOpen ? "Tutup Edit" : "Edit Teks"}
+            </button>
+          )}
           <button
             type="button"
             disabled={busyAction !== null}
@@ -177,8 +261,111 @@ export function ArtifactPreviewPanel({
         </div>
 
         {job.status === "failed" && (
-          <div className="rounded-xl border border-rose-500/30 bg-rose-500/10 p-3 text-xs text-rose-300">
-            Render gagal: {job.error_message || "Unknown error"}
+          <div className="flex items-center justify-between gap-3 rounded-xl border border-rose-500/30 bg-rose-500/10 p-3 text-xs text-rose-300">
+            <span className="min-w-0 break-words">
+              Render gagal: {job.error_message || "Unknown error"}
+            </span>
+            {onRetry && (
+              <button
+                type="button"
+                disabled={busyAction !== null}
+                onClick={handleRetryClick}
+                className="shrink-0 rounded-lg bg-rose-500 px-2.5 py-1 text-[11px] font-semibold text-white hover:bg-rose-400 disabled:opacity-50"
+              >
+                {busyAction === "retry" ? "Mengulang..." : "Coba Lagi"}
+              </button>
+            )}
+          </div>
+        )}
+
+        {editOpen && (
+          <div className="space-y-3 rounded-xl border border-[#ddf77b]/30 bg-[#131316] p-3.5">
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-xs font-semibold text-[#ddf77b]">
+                Edit Teks Slide &amp; Caption
+              </span>
+              {bpDraft && (
+                <button
+                  type="button"
+                  disabled={busyAction !== null}
+                  onClick={() => handleRerenderClick(bpDraft)}
+                  className="rounded-lg bg-[#ddf77b] px-3 py-1 text-[11px] font-bold text-[#181824] hover:opacity-90 disabled:opacity-50"
+                >
+                  {busyAction === "rerender" ? "Merender..." : "Simpan & Re-render"}
+                </button>
+              )}
+            </div>
+            {loadingBp && (
+              <p className="text-xs text-[#a1a1aa]">Memuat teks slide...</p>
+            )}
+            {bpError && (
+              <p className="text-xs text-rose-400">{bpError}</p>
+            )}
+            {bpDraft && (
+              <div className="space-y-3 max-h-[340px] overflow-y-auto pr-1">
+                <div>
+                  <label className="mb-1 block text-[10px] font-semibold uppercase tracking-wider text-[#63636b]">
+                    Judul Utama / Poster Hook
+                  </label>
+                  <input
+                    type="text"
+                    value={bpDraft.hookTitle}
+                    onChange={(e) =>
+                      setBpDraft((prev) => (prev ? { ...prev, hookTitle: e.target.value } : prev))
+                    }
+                    className="w-full rounded-lg border border-white/10 bg-[#0e0e10] px-2.5 py-1.5 text-xs text-[#f4f4f5] outline-none focus:border-[#ddf77b]/60"
+                  />
+                </div>
+                {bpDraft.scenes.map((sc, idx) => (
+                  <div key={sc.index} className="space-y-1.5 rounded-lg border border-white/10 bg-[#0e0e10] p-2.5">
+                    <span className="font-mono text-[10px] uppercase text-[#ddf77b]">
+                      Slide {sc.index} ({sc.role})
+                    </span>
+                    <input
+                      type="text"
+                      value={sc.slideTitle}
+                      onChange={(e) =>
+                        setBpDraft((prev) => {
+                          if (!prev) return prev;
+                          const nextScenes = prev.scenes.map((s, i) =>
+                            i === idx ? { ...s, slideTitle: e.target.value } : s
+                          );
+                          return { ...prev, scenes: nextScenes };
+                        })
+                      }
+                      className="w-full rounded border border-white/10 bg-[#131316] px-2 py-1 text-xs font-semibold text-[#f4f4f5] outline-none focus:border-[#ddf77b]/60"
+                    />
+                    <textarea
+                      rows={2}
+                      value={sc.slideBody}
+                      onChange={(e) =>
+                        setBpDraft((prev) => {
+                          if (!prev) return prev;
+                          const nextScenes = prev.scenes.map((s, i) =>
+                            i === idx ? { ...s, slideBody: e.target.value } : s
+                          );
+                          return { ...prev, scenes: nextScenes };
+                        })
+                      }
+                      className="w-full resize-none rounded border border-white/10 bg-[#131316] px-2 py-1 text-xs text-[#d4d4d8] outline-none focus:border-[#ddf77b]/60"
+                    />
+                  </div>
+                ))}
+                <div>
+                  <label className="mb-1 block text-[10px] font-semibold uppercase tracking-wider text-[#63636b]">
+                    Caption
+                  </label>
+                  <textarea
+                    rows={3}
+                    value={bpDraft.caption}
+                    onChange={(e) =>
+                      setBpDraft((prev) => (prev ? { ...prev, caption: e.target.value } : prev))
+                    }
+                    className="w-full resize-none rounded-lg border border-white/10 bg-[#0e0e10] px-2.5 py-1.5 text-xs text-[#d4d4d8] outline-none focus:border-[#ddf77b]/60"
+                  />
+                </div>
+              </div>
+            )}
           </div>
         )}
 
@@ -218,7 +405,7 @@ export function ArtifactPreviewPanel({
                       <button
                         type="button"
                         disabled={busyAction !== null}
-                        onClick={handleRerenderClick}
+                        onClick={() => handleRerenderClick()}
                         className="rounded-lg bg-[#ddf77b] px-2.5 py-1 text-[11px] font-bold text-[#181824] hover:opacity-90 disabled:opacity-50"
                       >
                         {busyAction === "rerender"
@@ -299,7 +486,7 @@ export function ArtifactPreviewPanel({
                 <video
                   controls
                   className="max-h-[400px] w-full rounded-xl border border-white/10 bg-black"
-                  src={`/outputs/${encodeURIComponent(folderName)}/${videoFile}`}
+                  src={`/outputs/${encodeURIComponent(folderName)}/${videoFile}${renderBust ? `?t=${renderBust}` : ""}`}
                 />
               </div>
             )}
@@ -310,7 +497,7 @@ export function ArtifactPreviewPanel({
                   Poster PNG
                 </p>
                 <img
-                  src={`/outputs/${encodeURIComponent(folderName)}/${posterFile}`}
+                  src={`/outputs/${encodeURIComponent(folderName)}/${posterFile}${renderBust ? `?t=${renderBust}` : ""}`}
                   alt="Poster"
                   className="max-h-[380px] w-full rounded-xl border border-white/10 bg-[#131316] object-contain"
                 />

@@ -725,7 +725,38 @@ const server = http.createServer(async (req, res) => {
           return sendJson(res, 403, { error: "Forbidden" });
         }
 
-        const blueprint = ContentBlueprintSchema.parse(payload.blueprint);
+        let rawBlueprint = payload.blueprint;
+        if (!rawBlueprint) {
+          const bpPath = path.join(jobDir, "blueprint.json");
+          if (!fs.existsSync(bpPath)) {
+            return sendJson(res, 404, { error: "blueprint.json tidak ditemukan di folder proyek." });
+          }
+          rawBlueprint = JSON.parse(fs.readFileSync(bpPath, "utf-8"));
+        }
+        const blueprint = ContentBlueprintSchema.parse(rawBlueprint);
+
+        // Apply customSceneImages overrides if provided
+        if (payload.customSceneImages && typeof payload.customSceneImages === "object") {
+          const rawDir = path.join(jobDir, "raw_images");
+          fs.mkdirSync(rawDir, { recursive: true });
+          for (const [idxKey, dataUri] of Object.entries(payload.customSceneImages as Record<string, unknown>)) {
+            if (typeof dataUri !== "string") continue;
+            const match = dataUri.match(/^data:image\/(png|jpeg|jpg|webp);base64,(.+)$/i);
+            if (!match) continue;
+            const ext = match[1].toLowerCase() === "jpeg" ? "jpg" : match[1].toLowerCase();
+            const sceneNum = Number(idxKey);
+            if (!Number.isFinite(sceneNum) || sceneNum < 1) continue;
+            for (const oldExt of ["png", "jpg", "jpeg", "webp", "svg"]) {
+              const oldFile = path.join(rawDir, `raw_scene_${sceneNum}.${oldExt}`);
+              if (fs.existsSync(oldFile)) fs.unlinkSync(oldFile);
+            }
+            fs.writeFileSync(
+              path.join(rawDir, `raw_scene_${sceneNum}.${ext}`),
+              Buffer.from(match[2], "base64")
+            );
+          }
+        }
+
         const outputs = Array.isArray(payload.outputs)
           ? payload.outputs.map((o: unknown) => OutputTypeSchema.parse(o))
           : ["carousel", "video"];
@@ -761,7 +792,12 @@ const server = http.createServer(async (req, res) => {
           }
         );
 
-        return sendJson(res, 200, { ok: true, folderName });
+        const manifestPath = path.join(jobDir, "manifest.json");
+        const manifest = fs.existsSync(manifestPath)
+          ? JSON.parse(fs.readFileSync(manifestPath, "utf-8"))
+          : undefined;
+
+        return sendJson(res, 200, { ok: true, folderName, manifest });
       } catch (err) {
         return sendJson(res, 500, {
           error: err instanceof Error ? err.message : String(err),

@@ -9,7 +9,8 @@
     "generate": "npx tsx src/cli/generate.ts",
     "batch": "npx tsx src/cli/batch.ts",
     "discover": "npx tsx src/cli/discover.ts",
-    "typecheck": "npx tsc --noEmit"
+    "typecheck": "npx tsc --noEmit",
+    "test:smoke": "node scripts/smoke-test.mjs"
   },
   "dependencies": {
     "@google/genai": "^1.0.0",

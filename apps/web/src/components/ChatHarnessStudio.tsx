@@ -842,16 +842,23 @@ export function ChatHarnessStudio() {
   const handleRerender = async (
     id: number,
     customSceneImages?: Record<number, string>,
-    outputs?: string[]
+    outputs?: string[],
+    blueprint?: Record<string, unknown>
   ) => {
-    await fetch(`/api/jobs/${id}/rerender`, {
+    const res = await fetch(`/api/jobs/${id}/rerender`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         outputs: outputs || ["carousel"],
         customSceneImages,
+        blueprint,
       }),
     });
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      setErrorBanner(data.error || "Gagal melakukan re-render.");
+      return;
+    }
     await loadJobs();
   };
 
@@ -2647,6 +2654,7 @@ export function ChatHarnessStudio() {
           onRerender={handleRerender}
           onDelete={handleDeleteJob}
           onRemix={handleRemixJob}
+          onRetry={handleRetryJob}
         />
       </div>
 

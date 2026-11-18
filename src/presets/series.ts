@@ -46,6 +46,42 @@ export const SERIES_PRESETS: Record<SeriesPreset, SeriesPresetConfig> = {
     defaultTransition: "slide",
     defaultLayoutPattern: ["news_headline", "split_card", "photo_top_split", "highlight_box"],
   },
+  komparasi: {
+    id: "komparasi",
+    name: "Mitos vs Fakta / Komparasi",
+    description: "Perbandingan dua sisi secara kontras: Mitos vs Realita atau Sebelum vs Sesudah.",
+    promptDirective:
+      "Gunakan format perbandingan kontras: Slide cover menantang anggapan umum, tiap slide konten membandingkan dua sisi secara tegas (misalnya Mitos vs Fakta atau Cara Lama vs Cara Baru dalam 1 kalimat tiap sisi), dan CTA mengajak audiens memilih tim mana di komentar.",
+    defaultTransition: "slide",
+    defaultLayoutPattern: ["news_headline", "versus_split", "split_card", "highlight_box"],
+  },
+  kronologi: {
+    id: "kronologi",
+    name: "Kronologi & Timeline",
+    description: "Alur kejadian atau perkembangan bertahap dari awal hingga dampak terkini.",
+    promptDirective:
+      "Gunakan alur kronologis bertahap (Tahap 1 -> Tahap 2 -> Titik Balik -> Dampak Terkini): Cocok untuk berita berseri atau sejarah singkat. Tiap slide punya penanda urutan/waktu yang jelas dan narasi padat.",
+    defaultTransition: "crossfade",
+    defaultLayoutPattern: ["editorial", "timeline_step", "photo_top_split", "highlight_box"],
+  },
+  checklist: {
+    id: "checklist",
+    name: "Checklist & Panduan",
+    description: "Daftar langkah siap praktik berbentuk kartu centang yang mudah disimpan.",
+    promptDirective:
+      "Gunakan format checklist praktis: Slide cover menjanjikan daftar cek siap pakai, setiap slide konten berisi 1 poin verifikasi/aksi konkret yang ringkas, dan CTA mengajak audiens menyimpan (Save) sebagai panduan.",
+    defaultTransition: "crossfade",
+    defaultLayoutPattern: ["editorial", "checklist_card", "big_number", "highlight_box"],
+  },
+  opini_quote: {
+    id: "opini_quote",
+    name: "Opini & Quote Editorial",
+    description: "Kutipan tajam, sudut pandang editorial, dan visual penuh berkarakter.",
+    promptDirective:
+      "Gunakan gaya opini editorial yang berwibawa dan reflektif: Slide cover berupa pernyataan pemantik diskusi, slide konten memadukan kutipan tajam dan analisis singkat, dan CTA mengundang diskusi berkualitas.",
+    defaultTransition: "zoom",
+    defaultLayoutPattern: ["full_bleed_caption", "quote_focus", "editorial", "highlight_box"],
+  },
 };
 
 export function getSeriesPreset(series?: SeriesPreset): SeriesPresetConfig {

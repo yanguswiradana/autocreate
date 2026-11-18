@@ -76,13 +76,22 @@ const SceneSegment: React.FC<{
 
   const scale =
     transition === "zoom"
-      ? interpolate(frame, [0, tFrames, durationInFrames], [1.14, 1.02, 1.09], {
+      ? interpolate(frame, [0, tFrames, durationInFrames], [1.14, 1.03, 1.1], {
           extrapolateRight: "clamp",
           easing: Easing.out(Easing.quad),
         })
-      : interpolate(frame, [0, durationInFrames], [1.0, 1.09], {
+      : interpolate(frame, [0, durationInFrames], [1.03, 1.11], {
           extrapolateRight: "clamp",
         });
+
+  const panDirection = scene.index % 2 === 0 ? 1 : -1;
+  const panX = interpolate(frame, [0, durationInFrames], [-14 * panDirection, 14 * panDirection], {
+    extrapolateRight: "clamp",
+  });
+  const videoTitleSize = Math.round(
+    (scene.role === "cover" ? 74 : 62) * (scene.slideTitle.length > 48 ? 0.84 : scene.slideTitle.length > 34 ? 0.92 : 1)
+  );
+  const videoBodySize = Math.round(36 * (scene.slideBody.length > 150 ? 0.86 : scene.slideBody.length > 100 ? 0.92 : 1));
 
   const segmentOpacity =
     transition === "none"
@@ -128,7 +137,7 @@ const SceneSegment: React.FC<{
             height: "100%",
             objectFit: "cover",
             opacity: 0.72,
-            transform: `scale(${scale})`,
+            transform: `scale(${scale}) translateX(${panX}px)`,
             filter:
               preset === "monochrome_luxury"
                 ? "grayscale(1) brightness(0.72) contrast(1.18)"
@@ -215,9 +224,10 @@ const SceneSegment: React.FC<{
             style={{
               margin: 0,
               fontFamily: theme.fontDisplay,
-              fontSize: scene.role === "cover" ? 74 : 62,
+              fontSize: videoTitleSize,
               lineHeight: 1.15,
               color: theme.textPrimary,
+              overflowWrap: "anywhere",
             }}
           >
             {scene.slideTitle}
@@ -235,9 +245,10 @@ const SceneSegment: React.FC<{
           <p
             style={{
               margin: 0,
-              fontSize: 36,
+              fontSize: videoBodySize,
               lineHeight: 1.5,
               color: theme.textSecondary,
+              overflowWrap: "anywhere",
             }}
           >
             {scene.slideBody}

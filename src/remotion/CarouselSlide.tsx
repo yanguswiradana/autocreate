@@ -58,13 +58,20 @@ export const CarouselSlide: React.FC<CarouselSlideProps> = ({
             ? "big_number"
             : "split_card");
 
-  const titleSize = isCover
-    ? isSquare || isLandscape
-      ? 64
-      : 76
-    : isSquare || isLandscape
-      ? 52
-      : 60;
+  const longTitleFactor = scene.slideTitle.length > 52 ? 0.84 : scene.slideTitle.length > 36 ? 0.92 : 1;
+  const longBodyFactor = scene.slideBody.length > 160 ? 0.85 : scene.slideBody.length > 110 ? 0.92 : 1;
+
+  const titleSize = Math.round(
+    (isCover
+      ? isSquare || isLandscape
+        ? 64
+        : 76
+      : isSquare || isLandscape
+        ? 52
+        : 60) * longTitleFactor
+  );
+
+  const bodySize = Math.round((isCover ? 34 : 36) * longBodyFactor);
 
   const containerPadding = isVertical
     ? "120px 80px 140px"
@@ -445,6 +452,107 @@ export const CarouselSlide: React.FC<CarouselSlideProps> = ({
               {scene.slideBody}
             </p>
           </div>
+        ) : layout === "versus_split" ? (
+          (() => {
+            const parts = scene.slideBody
+              .split(/\s*(?:\bvs\.?\b|\||;|\n)\s*/i)
+              .map((p) => p.trim())
+              .filter(Boolean);
+            const leftSide = parts[0] || scene.slideBody;
+            const rightSide = parts[1] || "Pendekatan baru yang lebih terukur & relevan.";
+            return (
+              <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
+                <span style={{ fontSize: 16, letterSpacing: 3, textTransform: "uppercase", color: theme.accent, fontWeight: 700 }}>
+                  KOMPARASI · SLIDE 0{scene.index}
+                </span>
+                <h1 style={{ margin: 0, fontFamily: theme.fontDisplay, fontSize: Math.round((isSquare || isLandscape ? 42 : 48) * longTitleFactor), lineHeight: 1.15, fontWeight: 700, color: theme.textPrimary, overflowWrap: "anywhere" }}>
+                  {scene.slideTitle}
+                </h1>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20 }}>
+                  <div style={{ padding: "26px 24px", borderRadius: 20, backgroundColor: "rgba(255,255,255,0.04)", border: `1px solid ${theme.border}`, display: "flex", flexDirection: "column", gap: 12 }}>
+                    <span style={{ fontSize: 15, letterSpacing: 2.5, textTransform: "uppercase", color: theme.textSecondary, fontWeight: 700 }}>
+                      SISI A / MITOS
+                    </span>
+                    <p style={{ margin: 0, fontSize: Math.round(27 * longBodyFactor), lineHeight: 1.45, color: theme.textSecondary, overflowWrap: "anywhere" }}>
+                      {leftSide}
+                    </p>
+                  </div>
+                  <div style={{ padding: "26px 24px", borderRadius: 20, backgroundColor: theme.surface, border: `2px solid ${theme.accent}`, display: "flex", flexDirection: "column", gap: 12 }}>
+                    <span style={{ fontSize: 15, letterSpacing: 2.5, textTransform: "uppercase", color: theme.accent, fontWeight: 700 }}>
+                      SISI B / FAKTA
+                    </span>
+                    <p style={{ margin: 0, fontSize: Math.round(27 * longBodyFactor), lineHeight: 1.45, color: theme.textPrimary, overflowWrap: "anywhere" }}>
+                      {rightSide}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            );
+          })()
+        ) : layout === "checklist_card" ? (
+          (() => {
+            const rawItems = scene.slideBody
+              .split(/\s*(?:;|\n|\u2022)\s*/)
+              .map((s) => s.trim())
+              .filter(Boolean);
+            const items = rawItems.length > 1 ? rawItems.slice(0, 4) : [scene.slideBody];
+            return (
+              <div style={{ display: "flex", flexDirection: "column", gap: 22, padding: "36px 40px", borderRadius: 24, backgroundColor: theme.surface, border: `1px solid ${theme.border}` }}>
+                <span style={{ fontSize: 16, letterSpacing: 3, textTransform: "uppercase", color: theme.accent, fontWeight: 700 }}>
+                  CHECKLIST · 0{scene.index}
+                </span>
+                <h1 style={{ margin: 0, fontFamily: theme.fontDisplay, fontSize: Math.round((isSquare || isLandscape ? 44 : 50) * longTitleFactor), lineHeight: 1.15, fontWeight: 700, color: theme.textPrimary, overflowWrap: "anywhere" }}>
+                  {scene.slideTitle}
+                </h1>
+                <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+                  {items.map((item, i) => (
+                    <div key={i} style={{ display: "flex", alignItems: "flex-start", gap: 16, padding: "16px 20px", borderRadius: 14, backgroundColor: "rgba(255,255,255,0.03)", border: `1px solid ${theme.border}` }}>
+                      <span style={{ width: 32, height: 32, borderRadius: 999, backgroundColor: theme.accent, color: theme.bgPrimary, display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 800, fontSize: 18, flexShrink: 0 }}>
+                        ✓
+                      </span>
+                      <span style={{ fontSize: Math.round(28 * longBodyFactor), lineHeight: 1.42, color: theme.textPrimary, overflowWrap: "anywhere" }}>
+                        {item}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            );
+          })()
+        ) : layout === "timeline_step" ? (
+          <div style={{ display: "flex", gap: 28, alignItems: "stretch" }}>
+            <div style={{ display: "flex", flexDirection: "column", alignItems: "center", paddingTop: 6 }}>
+              <div style={{ width: 56, height: 56, borderRadius: 999, backgroundColor: theme.accent, color: theme.bgPrimary, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: theme.fontDisplay, fontSize: 24, fontWeight: 800, flexShrink: 0 }}>
+                0{scene.index}
+              </div>
+              <div style={{ width: 3, flex: 1, minHeight: 80, marginTop: 12, backgroundColor: theme.accent, opacity: 0.45, borderRadius: 999 }} />
+            </div>
+            <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 18, padding: "28px 34px", borderRadius: 22, backgroundColor: theme.surface, border: `1px solid ${theme.border}` }}>
+              <span style={{ fontSize: 15, letterSpacing: 3, textTransform: "uppercase", color: theme.accent, fontWeight: 700 }}>
+                TAHAP 0{scene.index}
+              </span>
+              <h1 style={{ margin: 0, fontFamily: theme.fontDisplay, fontSize: Math.round((isSquare || isLandscape ? 44 : 50) * longTitleFactor), lineHeight: 1.16, fontWeight: 700, color: theme.textPrimary, overflowWrap: "anywhere" }}>
+                {scene.slideTitle}
+              </h1>
+              <p style={{ margin: 0, fontSize: Math.round(31 * longBodyFactor), lineHeight: 1.48, color: theme.textSecondary, overflowWrap: "anywhere" }}>
+                {scene.slideBody}
+              </p>
+            </div>
+          </div>
+        ) : layout === "full_bleed_caption" ? (
+          <div style={{ display: "flex", flexDirection: "column", justifyContent: "flex-end", flex: 1, paddingBottom: 16 }}>
+            <div style={{ padding: "34px 38px", borderRadius: 24, backgroundColor: "rgba(10,10,14,0.82)", borderLeft: `6px solid ${theme.accent}`, backdropFilter: "blur(8px)", display: "flex", flexDirection: "column", gap: 16 }}>
+              <span style={{ fontSize: 16, letterSpacing: 3, textTransform: "uppercase", color: theme.accent, fontWeight: 700 }}>
+                {isCover ? (coverBadge || "EDITORIAL") : `CATATAN 0${scene.index}`}
+              </span>
+              <h1 style={{ margin: 0, fontFamily: theme.fontDisplay, fontSize: Math.round((isSquare || isLandscape ? 46 : 54) * longTitleFactor), lineHeight: 1.14, fontWeight: 700, color: theme.textPrimary, overflowWrap: "anywhere" }}>
+                {scene.slideTitle}
+              </h1>
+              <p style={{ margin: 0, fontSize: Math.round(30 * longBodyFactor), lineHeight: 1.48, color: theme.textSecondary, overflowWrap: "anywhere" }}>
+                {scene.slideBody}
+              </p>
+            </div>
+          </div>
         ) : (
           <div
             style={{
@@ -518,10 +626,11 @@ export const CarouselSlide: React.FC<CarouselSlideProps> = ({
             <p
               style={{
                 margin: 0,
-                fontSize: isCover ? 34 : 36,
+                fontSize: bodySize,
                 lineHeight: 1.52,
                 color: theme.textSecondary,
                 maxWidth: "92%",
+                overflowWrap: "anywhere",
               }}
             >
               {scene.slideBody}

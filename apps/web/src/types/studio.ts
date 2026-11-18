@@ -250,6 +250,38 @@ export const SERIES_OPTIONS = [
     previewTitle: "Problem -> Solusi",
     previewShape: "split_card",
   },
+  {
+    id: "komparasi",
+    label: "Mitos vs Fakta",
+    desc: "Perbandingan dua sisi kontras: Mitos vs Realita.",
+    previewTag: "VS · KONTRAST",
+    previewTitle: "Mitos vs Fakta",
+    previewShape: "versus_split",
+  },
+  {
+    id: "kronologi",
+    label: "Kronologi & Timeline",
+    desc: "Alur kejadian bertahap dengan garis penghubung.",
+    previewTag: "TIMELINE",
+    previewTitle: "Tahap 1 -> Dampak",
+    previewShape: "timeline_step",
+  },
+  {
+    id: "checklist",
+    label: "Checklist & Panduan",
+    desc: "Daftar poin centang praktis siap simpan.",
+    previewTag: "✓ CHECKLIST",
+    previewTitle: "Daftar Cek Praktis",
+    previewShape: "checklist_card",
+  },
+  {
+    id: "opini_quote",
+    label: "Opini & Quote Editorial",
+    desc: "Foto penuh dengan kutipan editorial tajam.",
+    previewTag: "OPINI",
+    previewTitle: "Kutipan & Sudut Pandang",
+    previewShape: "full_bleed_caption",
+  },
 ] as const;
 
 export const OUTPUT_OPTIONS = [

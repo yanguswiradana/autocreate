@@ -34,6 +34,10 @@ export const SlideLayoutSchema = z.enum([
   "photo_top_split",
   "news_headline",
   "highlight_box",
+  "versus_split",
+  "checklist_card",
+  "timeline_step",
+  "full_bleed_caption",
 ]);
 export type SlideLayout = z.infer<typeof SlideLayoutSchema>;
 
@@ -50,6 +54,10 @@ export const SeriesPresetSchema = z.enum([
   "fakta_cepat",
   "storytelling",
   "promo_brand",
+  "komparasi",
+  "kronologi",
+  "checklist",
+  "opini_quote",
 ]);
 export type SeriesPreset = z.infer<typeof SeriesPresetSchema>;
 

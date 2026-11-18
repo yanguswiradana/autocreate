@@ -42,7 +42,7 @@ class ContentJobController extends Controller
     {
         return [
             'preset' => ['nullable', 'string', 'in:noir_editorial,midnight_tech,monochrome_luxury,warm_cinematic,neon_cyber,clean_paper'],
-            'series' => ['nullable', 'string', 'in:edukasi,fakta_cepat,storytelling,promo_brand'],
+            'series' => ['nullable', 'string', 'in:edukasi,fakta_cepat,storytelling,promo_brand,komparasi,kronologi,checklist,opini_quote'],
             'aspectRatio' => ['nullable', 'string', 'in:4:5,1:1,9:16,16:9'],
             'language' => ['nullable', 'string', 'in:id,en'],
             'outputs' => ['nullable', 'array', 'min:1'],
@@ -518,9 +518,13 @@ class ContentJobController extends Controller
 
     private function detectSeries(string $lower): ?string
     {
+        if (preg_match('/\b(komparasi|perbandingan|mitos\s+vs\s+fakta|sebelum\s+vs\s+sesudah|bandingkan)\b/i', $lower)) return 'komparasi';
+        if (preg_match('/\b(kronologi|timeline|sejarah|tahapan|perkembangan)\b/i', $lower)) return 'kronologi';
+        if (preg_match('/\b(checklist|ceklist|daftar\s+cek|syarat|persiapan)\b/i', $lower)) return 'checklist';
+        if (preg_match('/\b(opini|quote|kutipan|pendapat|sudut\s+pandang)\b/i', $lower)) return 'opini_quote';
         if (preg_match('/\b(edukasi|tips|tutorial|cara|langkah|panduan)\b/i', $lower)) return 'edukasi';
         if (preg_match('/\b(fakta|berita|news|headline|breaking|terkini|isu)\b/i', $lower)) return 'fakta_cepat';
-        if (preg_match('/\b(storytelling|cerita|kisah|kronologi|reflektif|opini)\b/i', $lower)) return 'storytelling';
+        if (preg_match('/\b(storytelling|cerita|kisah|reflektif|pengalaman)\b/i', $lower)) return 'storytelling';
         if (preg_match('/\b(promo|jualan|diskon|produk|brand|penawaran)\b/i', $lower)) return 'promo_brand';
         return null;
     }
@@ -600,7 +604,7 @@ class ContentJobController extends Controller
         $urlsBlock = count($urls) > 0 ? "\nURL yang sudah diketahui: " . implode(', ', $urls) . "\n" : '';
 
         $prompt = "Analisis pesan user untuk studio pembuat konten sosmed (step saat ini: {$step}). Kembalikan JSON valid dengan field:\n"
-            . '{"intent":"topic_brief|link_with_instruction|clarify|update_config|action_generate","action":"none|update_config|generate","cleanTopic":"topik inti singkat atau kosong jika ada URL/update_config","instruction":"arahan gaya/sudut pandang user","suggestedOutputs":["carousel"|"video"|"poster"|"raw"] atau null,"suggestedAspectRatio":"4:5"|"9:16"|"1:1"|"16:9" atau null,"suggestedSlides":3|5|7|10 atau null,"suggestedVisualProvider":"wikimedia"|"pollinations"|"gemini"|"procedural"|null,"suggestedSeries":"edukasi"|"fakta_cepat"|"storytelling"|"promo_brand"|null,"suggestedPreset":"noir_editorial"|"midnight_tech"|"monochrome_luxury"|"warm_cinematic"|"neon_cyber"|"clean_paper"|null,"suggestedLanguage":"id"|"en"|null,"assistantReply":"balasan 1-2 kalimat bahasa Indonesia yang natural, akurat, dan menyebut opsi yang dipilih"}'
+            . '{"intent":"topic_brief|link_with_instruction|clarify|update_config|action_generate","action":"none|update_config|generate","cleanTopic":"topik inti singkat atau kosong jika ada URL/update_config","instruction":"arahan gaya/sudut pandang user","suggestedOutputs":["carousel"|"video"|"poster"|"raw"] atau null,"suggestedAspectRatio":"4:5"|"9:16"|"1:1"|"16:9" atau null,"suggestedSlides":3|5|7|10 atau null,"suggestedVisualProvider":"wikimedia"|"pollinations"|"gemini"|"procedural"|null,"suggestedSeries":"edukasi"|"fakta_cepat"|"storytelling"|"promo_brand"|"komparasi"|"kronologi"|"checklist"|"opini_quote"|null,"suggestedPreset":"noir_editorial"|"midnight_tech"|"monochrome_luxury"|"warm_cinematic"|"neon_cyber"|"clean_paper"|null,"suggestedLanguage":"id"|"en"|null,"assistantReply":"balasan 1-2 kalimat bahasa Indonesia yang natural, akurat, dan menyebut opsi yang dipilih"}'
             . "\nAturan penting:"
             . "\n1. Jika URL sudah diketahui, JANGAN pilih clarify — pilih link_with_instruction agar link langsung diproses."
             . "\n2. Jika step adalah awaiting_config atau awaiting_confirm:"

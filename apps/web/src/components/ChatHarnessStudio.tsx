@@ -2313,6 +2313,46 @@ export function ChatHarnessStudio() {
                                 <div className="h-1.5 w-3/4 rounded bg-white/25" />
                               </div>
                             )}
+                            {s.previewShape === "versus_split" && (
+                              <div className="flex h-full flex-col justify-between gap-2">
+                                <span className="text-[10px] font-bold uppercase text-[#ddf77b]">{s.previewTag}</span>
+                                <div className="grid grid-cols-2 gap-1.5">
+                                  <div className="rounded border border-white/15 bg-white/5 p-1.5 text-[9px] text-[#a1a1aa]">Sisi A</div>
+                                  <div className="rounded border border-[#ddf77b]/60 bg-[#ddf77b]/10 p-1.5 text-[9px] text-[#ddf77b]">Sisi B</div>
+                                </div>
+                              </div>
+                            )}
+                            {s.previewShape === "timeline_step" && (
+                              <div className="flex h-full items-center gap-2.5">
+                                <div className="flex flex-col items-center">
+                                  <span className="flex h-5 w-5 items-center justify-center rounded-full bg-[#ddf77b] text-[9px] font-bold text-[#181824]">01</span>
+                                  <div className="h-10 w-0.5 bg-[#ddf77b]/40" />
+                                </div>
+                                <div className="space-y-1">
+                                  <p className="text-xs font-bold text-[#f4f4f5]">{s.previewTitle}</p>
+                                  <div className="h-1.5 w-24 rounded bg-white/25" />
+                                </div>
+                              </div>
+                            )}
+                            {s.previewShape === "checklist_card" && (
+                              <div className="flex h-full flex-col justify-center gap-1.5">
+                                <p className="text-xs font-bold text-[#f4f4f5]">{s.previewTitle}</p>
+                                <div className="flex items-center gap-1.5 text-[10px] text-[#a1a1aa]">
+                                  <span className="flex h-3.5 w-3.5 items-center justify-center rounded-full bg-[#ddf77b] text-[8px] font-bold text-[#181824]">✓</span>
+                                  <span>Poin verifikasi 1</span>
+                                </div>
+                                <div className="flex items-center gap-1.5 text-[10px] text-[#a1a1aa]">
+                                  <span className="flex h-3.5 w-3.5 items-center justify-center rounded-full bg-[#ddf77b] text-[8px] font-bold text-[#181824]">✓</span>
+                                  <span>Poin verifikasi 2</span>
+                                </div>
+                              </div>
+                            )}
+                            {s.previewShape === "full_bleed_caption" && (
+                              <div className="flex h-full flex-col justify-end rounded-lg bg-gradient-to-t from-black/80 via-[#232334] to-[#2e2e44] p-2.5">
+                                <span className="text-[9px] font-bold uppercase text-[#ddf77b]">{s.previewTag}</span>
+                                <p className="text-xs font-bold text-[#f4f4f5]">{s.previewTitle}</p>
+                              </div>
+                            )}
                           </div>
 
                           <div>
@@ -2775,11 +2815,35 @@ export function ChatHarnessStudio() {
                           { num: "02", tag: "PHOTO SPLIT", title: "Titik Balik Kejadian", body: "Foto di bagian atas + narasi cerita di bawah.", shape: "photo_top_split" },
                           { num: "03", tag: "REFLEKSI", title: "Pelajaran Pentingnya", body: "Kutipan atau highlight box terpusat di akhir.", shape: "quote_focus" },
                         ]
-                      : [
-                          { num: "01", tag: "PROBLEM", title: "Masalah yang Sering Terjadi", body: "Headline tebal menyorot pain point audiens.", shape: "news_headline" },
-                          { num: "02", tag: "SOLUSI", title: "Keunggulan Produk / Brand", body: "Kartu split dengan garis aksen di kiri.", shape: "split_card" },
-                          { num: "03", tag: "VISUAL + CTA", title: "Coba Sekarang Juga", body: "Foto produk di atas & tombol ajakan aksi di bawah.", shape: "photo_top_split" },
-                        ];
+                        : s.id === "komparasi"
+                          ? [
+                              { num: "01", tag: "HEADLINE", title: "Mitos vs Realita", body: "Menantang anggapan umum dengan fakta kontras.", shape: "news_headline" },
+                              { num: "02", tag: "VERSUS SPLIT", title: "Cara Lama vs Cara Baru", body: "Dua kolom berdampingan membandingkan Sisi A & Sisi B.", shape: "versus_split" },
+                              { num: "03", tag: "KESIMPULAN", title: "Mana Pilihanmu?", body: "Highlight box merangkum perbedaan paling penting.", shape: "split_card" },
+                            ]
+                          : s.id === "kronologi"
+                            ? [
+                                { num: "01", tag: "AWAL", title: "Latar Belakang Kejadian", body: "Pembuka editorial menjelaskan konteks awal.", shape: "editorial" },
+                                { num: "02", tag: "TIMELINE", title: "Tahap Perkembangan", body: "Node angka + garis penghubung vertikal berurutan.", shape: "timeline_step" },
+                                { num: "03", tag: "DAMPAK", title: "Situasi Terkini", body: "Foto di atas & ringkasan dampak terbaru di bawah.", shape: "photo_top_split" },
+                              ]
+                            : s.id === "checklist"
+                              ? [
+                                  { num: "01", tag: "PANDUAN", title: "Checklist Wajib Sebelum Mulai", body: "Janji daftar cek ringkas yang siap disimpan.", shape: "editorial" },
+                                  { num: "02", tag: "CHECKLIST", title: "Daftar Poin Verifikasi", body: "Kartu dengan ikon centang ✓ per item aksi.", shape: "checklist_card" },
+                                  { num: "03", tag: "SIMPAN", title: "Save Biar Tidak Lupa", body: "Angka kunci & ajakan simpan sebagai referensi.", shape: "big_number" },
+                                ]
+                              : s.id === "opini_quote"
+                                ? [
+                                    { num: "01", tag: "FULL BLEED", title: "Sudut Pandang Utama", body: "Foto penuh dengan blok caption editorial di bawah.", shape: "full_bleed_caption" },
+                                    { num: "02", tag: "KUTIPAN", title: "Pernyataan Inti", body: "Tanda kutip fokus di tengah dengan ritme tenang.", shape: "quote_focus" },
+                                    { num: "03", tag: "DISKUSI", title: "Bagaimana Menurutmu?", body: "Penutup editorial mengundang diskusi audiens.", shape: "editorial" },
+                                  ]
+                                : [
+                                    { num: "01", tag: "PROBLEM", title: "Masalah yang Sering Terjadi", body: "Headline tebal menyorot pain point audiens.", shape: "news_headline" },
+                                    { num: "02", tag: "SOLUSI", title: "Keunggulan Produk / Brand", body: "Kartu split dengan garis aksen di kiri.", shape: "split_card" },
+                                    { num: "03", tag: "VISUAL + CTA", title: "Coba Sekarang Juga", body: "Foto produk di atas & tombol ajakan aksi di bawah.", shape: "photo_top_split" },
+                                  ];
 
               return (
                 <>
@@ -2837,6 +2901,38 @@ export function ChatHarnessStudio() {
                             <span className="font-serif text-3xl leading-none text-[#ddf77b]">“</span>
                             <h4 className="text-sm font-bold text-[#f4f4f5]">{sl.title}</h4>
                             <p className="text-[11px] leading-relaxed text-[#a1a1aa]">{sl.body}</p>
+                          </div>
+                        ) : sl.shape === "versus_split" ? (
+                          <div className="space-y-2">
+                            <h4 className="text-sm font-bold text-[#f4f4f5]">{sl.title}</h4>
+                            <div className="grid grid-cols-2 gap-1.5 text-[10px]">
+                              <div className="rounded border border-white/15 bg-white/5 p-2 text-[#a1a1aa]">Sisi A</div>
+                              <div className="rounded border border-[#ddf77b] bg-[#ddf77b]/10 p-2 text-[#ddf77b]">Sisi B</div>
+                            </div>
+                          </div>
+                        ) : sl.shape === "timeline_step" ? (
+                          <div className="flex gap-2.5">
+                            <div className="flex flex-col items-center">
+                              <span className="flex h-6 w-6 items-center justify-center rounded-full bg-[#ddf77b] text-[10px] font-bold text-[#181824]">{sl.num}</span>
+                              <div className="h-14 w-0.5 bg-[#ddf77b]/40" />
+                            </div>
+                            <div className="space-y-1">
+                              <h4 className="text-sm font-bold text-[#f4f4f5]">{sl.title}</h4>
+                              <p className="text-[11px] leading-relaxed text-[#a1a1aa]">{sl.body}</p>
+                            </div>
+                          </div>
+                        ) : sl.shape === "checklist_card" ? (
+                          <div className="space-y-2">
+                            <h4 className="text-sm font-bold text-[#f4f4f5]">{sl.title}</h4>
+                            <div className="space-y-1 text-[10px] text-[#a1a1aa]">
+                              <div className="flex items-center gap-1.5"><span className="text-[#ddf77b]">✓</span> Poin 1 siap cek</div>
+                              <div className="flex items-center gap-1.5"><span className="text-[#ddf77b]">✓</span> Poin 2 siap cek</div>
+                            </div>
+                          </div>
+                        ) : sl.shape === "full_bleed_caption" ? (
+                          <div className="flex h-36 flex-col justify-end rounded-lg bg-gradient-to-t from-black/90 via-[#232334] to-[#2e2e44] p-3">
+                            <h4 className="text-sm font-bold text-[#f4f4f5]">{sl.title}</h4>
+                            <p className="text-[10px] text-[#a1a1aa]">{sl.body}</p>
                           </div>
                         ) : (
                           <div className="space-y-2">

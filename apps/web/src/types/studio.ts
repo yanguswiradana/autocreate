@@ -115,6 +115,9 @@ export interface DraftConfig {
   language: string;
   visualProvider: string;
   slides: number;
+  voice: string;
+  bgm: string;
+  bgmVolume: number;
   mock: boolean;
   customSceneImages: Record<number, string>;
   brandkit: BrandkitConfig;
@@ -312,6 +315,20 @@ export const LANGUAGES = [
   { id: "en", label: "English (EN)" },
 ] as const;
 
+export const VOICE_OPTIONS = [
+  { id: "id-ID-ArdiNeural", label: "Ardi (Pria ID)" },
+  { id: "id-ID-GadisNeural", label: "Gadis (Wanita ID)" },
+  { id: "en-US-AndrewNeural", label: "Andrew (Male EN)" },
+  { id: "en-US-AriaNeural", label: "Aria (Female EN)" },
+] as const;
+
+export const BGM_OPTIONS = [
+  { id: "ambient_dark", label: "Ambient Dark" },
+  { id: "lofi_calm", label: "Lofi Calm" },
+  { id: "cinematic_pulse", label: "Cinematic Pulse" },
+  { id: "none", label: "Tanpa BGM" },
+] as const;
+
 export const BRANDKIT_FONT_OPTIONS = [
   "Plus Jakarta Sans",
   "Inter",
@@ -347,6 +364,9 @@ export const DEFAULT_DRAFT_CONFIG: DraftConfig = {
   language: "id",
   visualProvider: "procedural",
   slides: 5,
+  voice: "id-ID-ArdiNeural",
+  bgm: "ambient_dark",
+  bgmVolume: 0.14,
   mock: false,
   customSceneImages: {},
   brandkit: DEFAULT_BRANDKIT_CONFIG,

@@ -1,7 +1,14 @@
 "use client";
 
 import { useState } from "react";
-import { ContentJobRecord, readImageFileAsDataUrl } from "@/types/studio";
+import {
+  BGM_OPTIONS,
+  ContentJobRecord,
+  PRESET_OPTIONS,
+  SERIES_OPTIONS,
+  VOICE_OPTIONS,
+  readImageFileAsDataUrl,
+} from "@/types/studio";
 
 interface EditableScene {
   index: number;
@@ -37,7 +44,8 @@ interface ArtifactPreviewPanelProps {
     id: number,
     customSceneImages?: Record<number, string>,
     outputs?: string[],
-    blueprint?: EditableBlueprint
+    blueprint?: EditableBlueprint,
+    audioOpts?: { voice?: string; bgm?: string; bgmVolume?: number }
   ) => Promise<void>;
   onDelete: (id: number) => Promise<void>;
   onRemix: (job: ContentJobRecord) => void;
@@ -61,6 +69,9 @@ export function ArtifactPreviewPanel({
   const [loadingBp, setLoadingBp] = useState(false);
   const [bpDraft, setBpDraft] = useState<EditableBlueprint | null>(null);
   const [bpError, setBpError] = useState<string | null>(null);
+  const [rerenderVoice, setRerenderVoice] = useState<string>("id-ID-ArdiNeural");
+  const [rerenderBgm, setRerenderBgm] = useState<string>("ambient_dark");
+  const [rerenderBgmVol, setRerenderBgmVol] = useState<number>(0.14);
 
   if (!job) return null;
 
@@ -97,7 +108,10 @@ export function ArtifactPreviewPanel({
         job.id,
         hasCustom ? stagedImages : undefined,
         job.outputs?.length ? job.outputs : ["carousel"],
-        overrideBp || (editOpen && bpDraft ? bpDraft : undefined)
+        overrideBp || (editOpen && bpDraft ? bpDraft : undefined),
+        job.outputs?.includes("video")
+          ? { voice: rerenderVoice, bgm: rerenderBgm, bgmVolume: rerenderBgmVol }
+          : undefined
       );
       if (hasCustom) {
         setStagedImages({});
@@ -152,6 +166,9 @@ export function ArtifactPreviewPanel({
   };
 
   const handleDeleteClick = async () => {
+    if (!window.confirm(`Hapus project #${job.id} "${job.topic}" beserta file outputnya?`)) {
+      return;
+    }
     setBusyAction("delete");
     try {
       await onDelete(job.id);
@@ -302,7 +319,81 @@ export function ArtifactPreviewPanel({
               <p className="text-xs text-rose-400">{bpError}</p>
             )}
             {bpDraft && (
-              <div className="space-y-3 max-h-[340px] overflow-y-auto pr-1">
+              <div className="space-y-3 max-h-[380px] overflow-y-auto pr-1">
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <label className="mb-1 block text-[10px] font-semibold uppercase tracking-wider text-[#63636b]">
+                      Preset Warna
+                    </label>
+                    <select
+                      value={bpDraft.preset}
+                      onChange={(e) =>
+                        setBpDraft((prev) => (prev ? { ...prev, preset: e.target.value } : prev))
+                      }
+                      className="w-full rounded-lg border border-white/10 bg-[#0e0e10] px-2 py-1.5 text-xs text-[#f4f4f5] outline-none focus:border-[#ddf77b]/60"
+                    >
+                      {PRESET_OPTIONS.map((p) => (
+                        <option key={p.id} value={p.id}>
+                          {p.label}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="mb-1 block text-[10px] font-semibold uppercase tracking-wider text-[#63636b]">
+                      Gaya Layout
+                    </label>
+                    <select
+                      value={bpDraft.series || "edukasi"}
+                      onChange={(e) =>
+                        setBpDraft((prev) => (prev ? { ...prev, series: e.target.value } : prev))
+                      }
+                      className="w-full rounded-lg border border-white/10 bg-[#0e0e10] px-2 py-1.5 text-xs text-[#f4f4f5] outline-none focus:border-[#ddf77b]/60"
+                    >
+                      {SERIES_OPTIONS.map((s) => (
+                        <option key={s.id} value={s.id}>
+                          {s.label}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+                {job.outputs?.includes("video") && (
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <label className="mb-1 block text-[10px] font-semibold uppercase tracking-wider text-[#63636b]">
+                        Voice TTS
+                      </label>
+                      <select
+                        value={rerenderVoice}
+                        onChange={(e) => setRerenderVoice(e.target.value)}
+                        className="w-full rounded-lg border border-white/10 bg-[#0e0e10] px-2 py-1.5 text-xs text-[#f4f4f5] outline-none focus:border-[#ddf77b]/60"
+                      >
+                        {VOICE_OPTIONS.map((v) => (
+                          <option key={v.id} value={v.id}>
+                            {v.label}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="mb-1 block text-[10px] font-semibold uppercase tracking-wider text-[#63636b]">
+                        Musik Latar (BGM)
+                      </label>
+                      <select
+                        value={rerenderBgm}
+                        onChange={(e) => setRerenderBgm(e.target.value)}
+                        className="w-full rounded-lg border border-white/10 bg-[#0e0e10] px-2 py-1.5 text-xs text-[#f4f4f5] outline-none focus:border-[#ddf77b]/60"
+                      >
+                        {BGM_OPTIONS.map((b) => (
+                          <option key={b.id} value={b.id}>
+                            {b.label}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+                )}
                 <div>
                   <label className="mb-1 block text-[10px] font-semibold uppercase tracking-wider text-[#63636b]">
                     Judul Utama / Poster Hook
@@ -312,6 +403,19 @@ export function ArtifactPreviewPanel({
                     value={bpDraft.hookTitle}
                     onChange={(e) =>
                       setBpDraft((prev) => (prev ? { ...prev, hookTitle: e.target.value } : prev))
+                    }
+                    className="w-full rounded-lg border border-white/10 bg-[#0e0e10] px-2.5 py-1.5 text-xs text-[#f4f4f5] outline-none focus:border-[#ddf77b]/60"
+                  />
+                </div>
+                <div>
+                  <label className="mb-1 block text-[10px] font-semibold uppercase tracking-wider text-[#63636b]">
+                    Subjudul
+                  </label>
+                  <input
+                    type="text"
+                    value={bpDraft.subtitle}
+                    onChange={(e) =>
+                      setBpDraft((prev) => (prev ? { ...prev, subtitle: e.target.value } : prev))
                     }
                     className="w-full rounded-lg border border-white/10 bg-[#0e0e10] px-2.5 py-1.5 text-xs text-[#f4f4f5] outline-none focus:border-[#ddf77b]/60"
                   />
@@ -362,6 +466,24 @@ export function ArtifactPreviewPanel({
                       setBpDraft((prev) => (prev ? { ...prev, caption: e.target.value } : prev))
                     }
                     className="w-full resize-none rounded-lg border border-white/10 bg-[#0e0e10] px-2.5 py-1.5 text-xs text-[#d4d4d8] outline-none focus:border-[#ddf77b]/60"
+                  />
+                </div>
+                <div>
+                  <label className="mb-1 block text-[10px] font-semibold uppercase tracking-wider text-[#63636b]">
+                    Hashtags (pisahkan spasi atau koma)
+                  </label>
+                  <input
+                    type="text"
+                    value={(bpDraft.hashtags || []).join(" ")}
+                    onChange={(e) => {
+                      const tags = e.target.value
+                        .split(/[\s,]+/)
+                        .map((t) => t.trim())
+                        .filter(Boolean)
+                        .map((t) => (t.startsWith("#") ? t : `#${t}`));
+                      setBpDraft((prev) => (prev ? { ...prev, hashtags: tags } : prev));
+                    }}
+                    className="w-full rounded-lg border border-white/10 bg-[#0e0e10] px-2.5 py-1.5 text-xs text-[#d4d4d8] outline-none focus:border-[#ddf77b]/60"
                   />
                 </div>
               </div>

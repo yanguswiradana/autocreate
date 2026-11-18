@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ASPECT_RATIOS,
+  BGM_OPTIONS,
   ChatMessage,
   ContentJobRecord,
   DEFAULT_DRAFT_CONFIG,
@@ -18,6 +19,7 @@ import {
   SLIDE_COUNTS,
   StarterMode,
   VISUAL_PROVIDERS,
+  VOICE_OPTIONS,
   readImageFileAsDataUrl,
 } from "@/types/studio";
 import { ArtifactPreviewPanel } from "./ArtifactPreviewPanel";
@@ -50,6 +52,7 @@ export function ChatHarnessStudio() {
   const [jobs, setJobs] = useState<ContentJobRecord[]>([]);
   const [previewJobId, setPreviewJobId] = useState<number | null>(null);
   const [historySearch, setHistorySearch] = useState("");
+  const [historyStatusFilter, setHistoryStatusFilter] = useState<"all" | "completed" | "processing" | "failed">("all");
   const [showAllPresets, setShowAllPresets] = useState(false);
   const [showAllSeries, setShowAllSeries] = useState(false);
   const [templatePreview, setTemplatePreview] = useState<
@@ -157,14 +160,22 @@ export function ChatHarnessStudio() {
 
   const filteredJobs = useMemo(() => {
     const q = historySearch.trim().toLowerCase();
-    if (!q) return jobs;
-    return jobs.filter(
-      (j) =>
+    return jobs.filter((j) => {
+      if (historyStatusFilter !== "all") {
+        if (historyStatusFilter === "processing") {
+          if (j.status !== "processing" && j.status !== "queued") return false;
+        } else if (j.status !== historyStatusFilter) {
+          return false;
+        }
+      }
+      if (!q) return true;
+      return (
         j.topic.toLowerCase().includes(q) ||
         j.preset.toLowerCase().includes(q) ||
         (j.folder_name || "").toLowerCase().includes(q)
-    );
-  }, [jobs, historySearch]);
+      );
+    });
+  }, [jobs, historySearch, historyStatusFilter]);
 
   const isPosterOnly =
     draft.outputs.length === 1 && draft.outputs[0] === "poster";
@@ -701,6 +712,9 @@ export function ChatHarnessStudio() {
       slides: effectiveSlides,
       mock: cfg.mock,
       visualProvider: cfg.visualProvider,
+      voice: cfg.outputs.includes("video") ? cfg.voice : undefined,
+      bgm: cfg.outputs.includes("video") ? cfg.bgm : undefined,
+      bgmVolume: cfg.outputs.includes("video") ? cfg.bgmVolume : undefined,
       instruction: cfg.instruction.trim() || undefined,
       customSceneImages:
         Object.keys(cfg.customSceneImages).length > 0
@@ -843,7 +857,8 @@ export function ChatHarnessStudio() {
     id: number,
     customSceneImages?: Record<number, string>,
     outputs?: string[],
-    blueprint?: Record<string, unknown>
+    blueprint?: Record<string, unknown>,
+    audioOpts?: { voice?: string; bgm?: string; bgmVolume?: number }
   ) => {
     const res = await fetch(`/api/jobs/${id}/rerender`, {
       method: "POST",
@@ -852,6 +867,9 @@ export function ChatHarnessStudio() {
         outputs: outputs || ["carousel"],
         customSceneImages,
         blueprint,
+        voice: audioOpts?.voice,
+        bgm: audioOpts?.bgm,
+        bgmVolume: audioOpts?.bgmVolume,
       }),
     });
     if (!res.ok) {
@@ -864,6 +882,16 @@ export function ChatHarnessStudio() {
 
   const handleDeleteJob = async (id: number) => {
     await fetch(`/api/jobs/${id}`, { method: "DELETE" });
+    await loadJobs();
+  };
+
+  const handleClearFailedJobs = async () => {
+    const failed = jobs.filter((j) => j.status === "failed");
+    if (failed.length === 0) return;
+    if (!window.confirm(`Hapus semua ${failed.length} job yang gagal?`)) return;
+    await Promise.all(
+      failed.map((j) => fetch(`/api/jobs/${j.id}`, { method: "DELETE" }))
+    );
     await loadJobs();
   };
 
@@ -1691,6 +1719,47 @@ export function ChatHarnessStudio() {
                                         })}
                                       </div>
                                     </div>
+
+                                    {draft.outputs.includes("video") && (
+                                      <>
+                                        <div>
+                                          <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wider text-[#a1a1aa]">
+                                            Voiceover TTS
+                                          </p>
+                                          <select
+                                            value={draft.voice}
+                                            onChange={(e) =>
+                                              setDraft((prev) => ({ ...prev, voice: e.target.value }))
+                                            }
+                                            className="w-full rounded-lg border border-white/10 bg-[#1a1a1f] px-2.5 py-1.5 text-xs text-[#f4f4f5] outline-none focus:border-[#ddf77b]/60"
+                                          >
+                                            {VOICE_OPTIONS.map((v) => (
+                                              <option key={v.id} value={v.id}>
+                                                {v.label}
+                                              </option>
+                                            ))}
+                                          </select>
+                                        </div>
+                                        <div>
+                                          <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wider text-[#a1a1aa]">
+                                            Musik Latar (BGM)
+                                          </p>
+                                          <select
+                                            value={draft.bgm}
+                                            onChange={(e) =>
+                                              setDraft((prev) => ({ ...prev, bgm: e.target.value }))
+                                            }
+                                            className="w-full rounded-lg border border-white/10 bg-[#1a1a1f] px-2.5 py-1.5 text-xs text-[#f4f4f5] outline-none focus:border-[#ddf77b]/60"
+                                          >
+                                            {BGM_OPTIONS.map((b) => (
+                                              <option key={b.id} value={b.id}>
+                                                {b.label}
+                                              </option>
+                                            ))}
+                                          </select>
+                                        </div>
+                                      </>
+                                    )}
                                   </div>
 
                                   {/* Custom Photos per Slide */}
@@ -2530,13 +2599,45 @@ export function ChatHarnessStudio() {
                       Log lengkap semua job (berhasil, gagal, antrean), durasi proses, retry, remix, dan hapus.
                     </p>
                   </div>
-                  <div className="flex items-center gap-2">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <div className="flex rounded-lg border border-white/10 bg-[#131316] p-0.5 text-[11px]">
+                      {(
+                        [
+                          { id: "all", label: "Semua" },
+                          { id: "completed", label: "Selesai" },
+                          { id: "processing", label: "Proses" },
+                          { id: "failed", label: "Gagal" },
+                        ] as const
+                      ).map((tab) => (
+                        <button
+                          key={tab.id}
+                          type="button"
+                          onClick={() => setHistoryStatusFilter(tab.id)}
+                          className={`rounded-md px-2.5 py-1 font-medium transition ${
+                            historyStatusFilter === tab.id
+                              ? "bg-[#ddf77b] text-[#181824]"
+                              : "text-[#a1a1aa] hover:text-white"
+                          }`}
+                        >
+                          {tab.label}
+                        </button>
+                      ))}
+                    </div>
                     <input
                       value={historySearch}
                       onChange={(e) => setHistorySearch(e.target.value)}
                       placeholder="Cari topik atau preset..."
                       className="rounded-lg border border-white/10 bg-[#131316] px-3 py-1.5 text-xs text-[#f4f4f5] placeholder-[#63636b] outline-none focus:border-[#ddf77b]/60"
                     />
+                    {jobs.some((j) => j.status === "failed") && (
+                      <button
+                        type="button"
+                        onClick={handleClearFailedJobs}
+                        className="rounded-lg border border-rose-500/30 bg-rose-500/10 px-3 py-1.5 text-xs font-medium text-rose-300 hover:bg-rose-500/20"
+                      >
+                        Bersihkan Gagal
+                      </button>
+                    )}
                     <button
                       type="button"
                       onClick={loadJobs}
@@ -2619,7 +2720,11 @@ export function ChatHarnessStudio() {
                           </button>
                           <button
                             type="button"
-                            onClick={() => handleDeleteJob(j.id)}
+                            onClick={() => {
+                              if (window.confirm(`Hapus project #${j.id} "${j.topic}"?`)) {
+                                handleDeleteJob(j.id);
+                              }
+                            }}
                             className="rounded-lg border border-rose-500/30 px-3 py-1.5 text-xs text-rose-400 hover:bg-rose-500/10"
                           >
                             Hapus

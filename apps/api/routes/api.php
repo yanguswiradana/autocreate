@@ -3,6 +3,7 @@
 use App\Http\Controllers\BrandkitController;
 use App\Http\Controllers\ContentJobController;
 use App\Http\Controllers\ProviderKeyController;
+use App\Http\Controllers\SocialPublishController;
 use App\Http\Controllers\VideoEditController;
 use Illuminate\Support\Facades\Route;
 
@@ -43,3 +44,9 @@ Route::post('/analyze-reference', [VideoEditController::class, 'analyzeReference
 Route::get('/brandkit', [BrandkitController::class, 'show']);
 Route::put('/brandkit', [BrandkitController::class, 'update']);
 Route::delete('/brandkit', [BrandkitController::class, 'destroy']);
+
+Route::get('/social-accounts', [SocialPublishController::class, 'indexAccounts']);
+Route::post('/social-accounts', [SocialPublishController::class, 'storeAccount']);
+Route::delete('/social-accounts/{platform}', [SocialPublishController::class, 'destroyAccount']);
+Route::get('/jobs/{id}/publishes', [SocialPublishController::class, 'jobLogs']);
+Route::post('/jobs/{id}/publish', [SocialPublishController::class, 'publishJob']);

@@ -73,6 +73,14 @@ export function ArtifactPreviewPanel({
   const [rerenderVoice, setRerenderVoice] = useState<string>("id-ID-ArdiNeural");
   const [rerenderBgm, setRerenderBgm] = useState<string>("ambient_dark");
   const [rerenderBgmVol, setRerenderBgmVol] = useState<number>(0.14);
+  const [publishOpen, setPublishOpen] = useState(false);
+  const [pubPlatform, setPubPlatform] = useState<"instagram" | "youtube" | "tiktok">("instagram");
+  const [pubSchedule, setPubSchedule] = useState("");
+  const [pubBusy, setPubBusy] = useState(false);
+  const [pubFeedback, setPubFeedback] = useState<{ ok: boolean; text: string } | null>(null);
+  const [pubLogs, setPubLogs] = useState<
+    Array<{ id: number; platform: string; status: string; remote_url?: string | null; error_message?: string | null; scheduled_at?: string | null }>
+  >([]);
 
   if (!job) return null;
 
@@ -154,6 +162,62 @@ export function ArtifactPreviewPanel({
       await onRetry(job.id);
     } finally {
       setBusyAction(null);
+    }
+  };
+
+  const handleTogglePublish = async () => {
+    const next = !publishOpen;
+    setPublishOpen(next);
+    setPubFeedback(null);
+    if (next) {
+      try {
+        const res = await fetch(`/api/jobs/${job.id}/publishes`, { cache: "no-store" });
+        if (res.ok) {
+          const data = await res.json();
+          setPubLogs(data.logs || []);
+        }
+      } catch {
+        // ignore
+      }
+    }
+  };
+
+  const handlePublishSubmit = async () => {
+    setPubBusy(true);
+    setPubFeedback(null);
+    try {
+      const res = await fetch(`/api/jobs/${job.id}/publish`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          platform: pubPlatform,
+          scheduledAt: pubSchedule ? new Date(pubSchedule).toISOString() : undefined,
+          caption: captionFull || undefined,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || data.message || "Gagal publish ke sosmed.");
+      }
+      setPubFeedback({
+        ok: true,
+        text:
+          data.log?.status === "scheduled"
+            ? `Berhasil dijadwalkan ke ${pubPlatform}!`
+            : `Berhasil dipublish ke ${pubPlatform}!`,
+      });
+      const logsRes = await fetch(`/api/jobs/${job.id}/publishes`, { cache: "no-store" });
+      if (logsRes.ok) {
+        const lData = await logsRes.json();
+        setPubLogs(lData.logs || []);
+      }
+    } catch (e) {
+      setPubFeedback({
+        ok: false,
+        text: e instanceof Error ? e.message : "Gagal publish.",
+      });
+    } finally {
+      setPubBusy(false);
     }
   };
 
@@ -268,6 +332,20 @@ export function ArtifactPreviewPanel({
               {editOpen ? "Tutup Edit" : "Edit Teks"}
             </button>
           )}
+          {job.status === "completed" && (
+            <button
+              type="button"
+              disabled={busyAction !== null}
+              onClick={handleTogglePublish}
+              className={`rounded-lg border px-3 py-1.5 text-xs font-medium transition disabled:opacity-50 ${
+                publishOpen
+                  ? "border-[#ddf77b] bg-[#ddf77b]/15 text-[#ddf77b]"
+                  : "border-white/10 bg-[#131316] text-[#d4d4d8] hover:border-[#ddf77b]/50 hover:text-[#ddf77b]"
+              }`}
+            >
+              {publishOpen ? "Tutup Publish" : "Publish Sosmed"}
+            </button>
+          )}
           <button
             type="button"
             disabled={busyAction !== null}
@@ -292,6 +370,78 @@ export function ArtifactPreviewPanel({
               >
                 {busyAction === "retry" ? "Mengulang..." : "Coba Lagi"}
               </button>
+            )}
+          </div>
+        )}
+
+        {publishOpen && (
+          <div className="space-y-3 rounded-xl border border-[#ddf77b]/30 bg-[#131316] p-3.5">
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-xs font-semibold text-[#ddf77b]">
+                Publish / Jadwalkan ke Sosmed
+              </span>
+              <button
+                type="button"
+                disabled={pubBusy}
+                onClick={handlePublishSubmit}
+                className="rounded-lg bg-[#ddf77b] px-3 py-1 text-[11px] font-bold text-[#181824] hover:opacity-90 disabled:opacity-50"
+              >
+                {pubBusy
+                  ? "Mengirim..."
+                  : pubSchedule
+                    ? "Jadwalkan Upload"
+                    : "Publish Sekarang"}
+              </button>
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <select
+                value={pubPlatform}
+                onChange={(e) =>
+                  setPubPlatform(e.target.value as "instagram" | "youtube" | "tiktok")
+                }
+                className="rounded-lg border border-white/10 bg-[#0e0e10] px-2.5 py-1.5 text-xs text-[#f4f4f5] outline-none"
+              >
+                <option value="instagram">Instagram Business</option>
+                <option value="youtube">YouTube Shorts</option>
+                <option value="tiktok">TikTok</option>
+              </select>
+              <input
+                type="datetime-local"
+                value={pubSchedule}
+                onChange={(e) => setPubSchedule(e.target.value)}
+                className="rounded-lg border border-white/10 bg-[#0e0e10] px-2.5 py-1.5 text-xs text-[#f4f4f5] outline-none"
+              />
+            </div>
+            {pubFeedback && (
+              <p className={`text-xs ${pubFeedback.ok ? "text-[#ddf77b]" : "text-rose-400"}`}>
+                {pubFeedback.text}
+              </p>
+            )}
+            {pubLogs.length > 0 && (
+              <div className="space-y-1.5 border-t border-white/10 pt-2">
+                <p className="text-[10px] font-semibold uppercase tracking-wider text-[#63636b]">
+                  Riwayat Publish
+                </p>
+                {pubLogs.slice(0, 4).map((l) => (
+                  <div
+                    key={l.id}
+                    className="flex items-center justify-between gap-2 rounded-lg border border-white/5 bg-[#0e0e10] px-2.5 py-1.5 text-[11px]"
+                  >
+                    <span className="capitalize text-[#f4f4f5]">{l.platform}</span>
+                    <span
+                      className={`font-mono ${
+                        l.status === "published"
+                          ? "text-[#ddf77b]"
+                          : l.status === "scheduled"
+                            ? "text-amber-300"
+                            : "text-rose-400"
+                      }`}
+                    >
+                      {l.status}
+                    </span>
+                  </div>
+                ))}
+              </div>
             )}
           </div>
         )}

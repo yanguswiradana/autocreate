@@ -35,7 +35,17 @@ interface StoredProviderKey {
   updated_at: string;
 }
 
-type SettingsTab = "provider" | "defaults" | "brandkit" | "faq" | "system";
+type SettingsTab = "provider" | "defaults" | "brandkit" | "social" | "faq" | "system";
+
+interface StoredSocialAccount {
+  id: number;
+  platform: "instagram" | "youtube" | "tiktok";
+  account_name: string;
+  account_id?: string | null;
+  masked_token: string;
+  is_active: boolean;
+  last_error?: string | null;
+}
 
 export function SettingsView({
   draft,
@@ -79,6 +89,87 @@ export function SettingsView({
   const [rssCount, setRssCount] = useState<number>(2);
   const [runningRss, setRunningRss] = useState(false);
   const [rssFeedback, setRssFeedback] = useState<string | null>(null);
+  const [socialAccounts, setSocialAccounts] = useState<StoredSocialAccount[]>([]);
+  const [socialForms, setSocialForms] = useState<
+    Record<"instagram" | "youtube" | "tiktok", { accountName: string; accountId: string; accessToken: string }>
+  >({
+    instagram: { accountName: "", accountId: "", accessToken: "" },
+    youtube: { accountName: "", accountId: "", accessToken: "" },
+    tiktok: { accountName: "", accountId: "", accessToken: "" },
+  });
+  const [busySocial, setBusySocial] = useState<string | null>(null);
+  const [socialFeedback, setSocialFeedback] = useState<Record<string, { ok: boolean; text: string }>>({});
+
+  const loadSocialAccounts = useCallback(async () => {
+    try {
+      const res = await fetch("/api/social-accounts", { cache: "no-store" });
+      if (!res.ok) return;
+      const data = await res.json();
+      setSocialAccounts(data.accounts || []);
+    } catch {
+      // ignore
+    }
+  }, []);
+
+  useEffect(() => {
+    loadSocialAccounts();
+  }, [loadSocialAccounts]);
+
+  const handleSaveSocial = async (platform: "instagram" | "youtube" | "tiktok") => {
+    const f = socialForms[platform];
+    if (!f.accountName.trim() || f.accessToken.trim().length < 8) {
+      setSocialFeedback((prev) => ({
+        ...prev,
+        [platform]: { ok: false, text: "Nama akun dan Access Token (min. 8 karakter) wajib diisi." },
+      }));
+      return;
+    }
+    setBusySocial(platform);
+    try {
+      const res = await fetch("/api/social-accounts", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          platform,
+          account_name: f.accountName.trim(),
+          account_id: f.accountId.trim() || undefined,
+          access_token: f.accessToken.trim(),
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || data.error || "Gagal menyimpan akun");
+      setSocialForms((prev) => ({
+        ...prev,
+        [platform]: { ...prev[platform], accessToken: "" },
+      }));
+      setSocialFeedback((prev) => ({
+        ...prev,
+        [platform]: { ok: true, text: "Akun sosmed terhubung & token terenkripsi." },
+      }));
+      await loadSocialAccounts();
+    } catch (e) {
+      setSocialFeedback((prev) => ({
+        ...prev,
+        [platform]: { ok: false, text: e instanceof Error ? e.message : "Gagal menyimpan" },
+      }));
+    } finally {
+      setBusySocial(null);
+    }
+  };
+
+  const handleDisconnectSocial = async (platform: "instagram" | "youtube" | "tiktok") => {
+    setBusySocial(platform);
+    try {
+      await fetch(`/api/social-accounts/${platform}`, { method: "DELETE" });
+      setSocialFeedback((prev) => ({
+        ...prev,
+        [platform]: { ok: true, text: "Koneksi akun diputuskan." },
+      }));
+      await loadSocialAccounts();
+    } finally {
+      setBusySocial(null);
+    }
+  };
 
   const handleRunAutoDiscover = async () => {
     setRunningRss(true);
@@ -433,6 +524,7 @@ export function SettingsView({
               { id: "provider", label: "Provider & BYOK" },
               { id: "defaults", label: "Preferensi Default" },
               { id: "brandkit", label: "Brandkit" },
+              { id: "social", label: "Sosmed & Publish" },
               { id: "faq", label: "Alur & FAQ" },
               { id: "system", label: "Status Sistem" },
             ] as const
@@ -1192,7 +1284,141 @@ export function SettingsView({
           </div>
         )}
 
-        {/* TAB 4: STATUS SISTEM */}
+        {/* TAB 4: SOSMED & AUTO-PUBLISH */}
+        {tab === "social" && (
+          <div className="space-y-4">
+            <div className="rounded-[14px] border border-white/10 bg-[#131316] p-4 text-xs text-[#a1a1aa]">
+              Hubungkan akun sosmed dengan Access Token resmi untuk mengaktifkan tombol <b className="text-[#ddf77b]">Publish Sosmed</b> di panel Preview. Catatan: Instagram &amp; TikTok membutuhkan <code className="text-[#f4f4f5]">PUBLIC_BASE_URL</code> (HTTPS publik) di <code className="text-[#f4f4f5]">.env</code>; YouTube Shorts mengunggah file MP4 langsung.
+            </div>
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+              {(
+                [
+                  {
+                    id: "instagram",
+                    title: "Instagram Business",
+                    subtitle: "Graph API v21.0 (Reels & Feed)",
+                    idLabel: "IG Business User ID",
+                    idPlaceholder: "contoh: 17841400...",
+                  },
+                  {
+                    id: "youtube",
+                    title: "YouTube Shorts",
+                    subtitle: "YouTube Data API v3 (OAuth Token)",
+                    idLabel: "Channel ID (Opsional)",
+                    idPlaceholder: "contoh: UC...",
+                  },
+                  {
+                    id: "tiktok",
+                    title: "TikTok",
+                    subtitle: "Content Posting API v2",
+                    idLabel: "Open ID (Opsional)",
+                    idPlaceholder: "opsional",
+                  },
+                ] as const
+              ).map((plat) => {
+                const stored = socialAccounts.find((a) => a.platform === plat.id);
+                const form = socialForms[plat.id];
+                const fb = socialFeedback[plat.id];
+                return (
+                  <div
+                    key={plat.id}
+                    className="flex flex-col justify-between rounded-[14px] border border-white/10 bg-[#131316] p-4 space-y-3"
+                  >
+                    <div className="space-y-2.5">
+                      <div className="flex items-start justify-between gap-2">
+                        <div>
+                          <h3 className="text-sm font-semibold text-[#f4f4f5]">{plat.title}</h3>
+                          <p className="text-[11px] text-[#a1a1aa]">{plat.subtitle}</p>
+                        </div>
+                        <span
+                          className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${
+                            stored
+                              ? "bg-[#ddf77b]/15 text-[#ddf77b]"
+                              : "bg-white/5 text-[#63636b]"
+                          }`}
+                        >
+                          {stored ? "Terhubung" : "Belum"}
+                        </span>
+                      </div>
+
+                      {stored && (
+                        <div className="rounded-lg border border-white/10 bg-[#0e0e10] p-2.5 text-[11px]">
+                          <p className="font-semibold text-[#f4f4f5]">{stored.account_name}</p>
+                          <p className="font-mono text-[#a1a1aa]">{stored.masked_token}</p>
+                        </div>
+                      )}
+
+                      <input
+                        type="text"
+                        value={form.accountName}
+                        onChange={(e) =>
+                          setSocialForms((prev) => ({
+                            ...prev,
+                            [plat.id]: { ...prev[plat.id], accountName: e.target.value },
+                          }))
+                        }
+                        placeholder="Nama Akun / Brand"
+                        className="w-full rounded-lg border border-white/10 bg-[#1a1a1f] px-3 py-1.5 text-xs text-[#f4f4f5] placeholder-[#63636b] outline-none focus:border-[#ddf77b]/60"
+                      />
+                      <input
+                        type="text"
+                        value={form.accountId}
+                        onChange={(e) =>
+                          setSocialForms((prev) => ({
+                            ...prev,
+                            [plat.id]: { ...prev[plat.id], accountId: e.target.value },
+                          }))
+                        }
+                        placeholder={`${plat.idLabel} (${plat.idPlaceholder})`}
+                        className="w-full rounded-lg border border-white/10 bg-[#1a1a1f] px-3 py-1.5 text-xs text-[#f4f4f5] placeholder-[#63636b] outline-none focus:border-[#ddf77b]/60"
+                      />
+                      <input
+                        type="password"
+                        value={form.accessToken}
+                        onChange={(e) =>
+                          setSocialForms((prev) => ({
+                            ...prev,
+                            [plat.id]: { ...prev[plat.id], accessToken: e.target.value },
+                          }))
+                        }
+                        placeholder="Paste Access Token..."
+                        className="w-full rounded-lg border border-white/10 bg-[#1a1a1f] px-3 py-1.5 text-xs text-[#f4f4f5] placeholder-[#63636b] outline-none focus:border-[#ddf77b]/60"
+                      />
+                      {fb && (
+                        <p className={`text-[11px] ${fb.ok ? "text-[#ddf77b]" : "text-rose-400"}`}>
+                          {fb.text}
+                        </p>
+                      )}
+                    </div>
+
+                    <div className="flex items-center gap-2 pt-1">
+                      <button
+                        type="button"
+                        disabled={busySocial === plat.id}
+                        onClick={() => handleSaveSocial(plat.id)}
+                        className="flex-1 rounded-lg bg-[#ddf77b] px-3 py-1.5 text-xs font-bold text-[#181824] hover:opacity-90 disabled:opacity-50"
+                      >
+                        {busySocial === plat.id ? "Menyimpan..." : "Simpan Koneksi"}
+                      </button>
+                      {stored && (
+                        <button
+                          type="button"
+                          disabled={busySocial === plat.id}
+                          onClick={() => handleDisconnectSocial(plat.id)}
+                          className="rounded-lg border border-rose-500/30 px-2.5 py-1.5 text-xs text-rose-400 hover:bg-rose-500/10 disabled:opacity-50"
+                        >
+                          Putus
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* TAB 5: STATUS SISTEM */}
         {tab === "system" && (
           <div className="rounded-[14px] border border-white/10 bg-[#131316] p-5 space-y-4">
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-3 text-xs">

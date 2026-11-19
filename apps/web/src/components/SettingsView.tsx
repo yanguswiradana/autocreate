@@ -67,6 +67,50 @@ export function SettingsView({
 
   const [healthResult, setHealthResult] = useState<string | null>(null);
   const [checkingHealth, setCheckingHealth] = useState(false);
+  const [storageStats, setStorageStats] = useState<{
+    totalBytes: number;
+    folderCount: number;
+    orphanCount: number;
+    orphanBytes: number;
+  } | null>(null);
+  const [loadingStorage, setLoadingStorage] = useState(false);
+  const [cleaningStorage, setCleaningStorage] = useState(false);
+  const [storageFeedback, setStorageFeedback] = useState<string | null>(null);
+
+  const loadStorageStats = useCallback(async () => {
+    setLoadingStorage(true);
+    setStorageFeedback(null);
+    try {
+      const res = await fetch("/api/storage", { cache: "no-store" });
+      if (!res.ok) throw new Error("Gagal memuat info storage");
+      setStorageStats(await res.json());
+    } catch (e) {
+      setStorageFeedback(e instanceof Error ? e.message : "Gagal memuat storage");
+    } finally {
+      setLoadingStorage(false);
+    }
+  }, []);
+
+  const handleCleanupOrphans = async () => {
+    if (!storageStats || storageStats.orphanCount === 0) return;
+    if (!window.confirm(`Hapus ${storageStats.orphanCount} folder output yatim yang tidak terdaftar di database?`)) {
+      return;
+    }
+    setCleaningStorage(true);
+    setStorageFeedback(null);
+    try {
+      const res = await fetch("/api/storage/cleanup", { method: "POST" });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Gagal membersihkan folder");
+      const mb = ((data.freedBytes || 0) / (1024 * 1024)).toFixed(2);
+      setStorageFeedback(`Berhasil menghapus ${data.removedCount || 0} folder (${mb} MB dibebaskan).`);
+      await loadStorageStats();
+    } catch (e) {
+      setStorageFeedback(e instanceof Error ? e.message : "Gagal cleanup storage");
+    } finally {
+      setCleaningStorage(false);
+    }
+  };
 
   const [savingBrandkit, setSavingBrandkit] = useState(false);
   const [brandkitFeedback, setBrandkitFeedback] = useState<{ ok: boolean; text: string } | null>(null);
@@ -1059,6 +1103,66 @@ export function SettingsView({
               </button>
               {healthResult && (
                 <span className="font-mono text-xs text-[#d4d4d8]">{healthResult}</span>
+              )}
+            </div>
+
+            <div className="border-t border-white/10 pt-4 space-y-3">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div>
+                  <h4 className="text-xs font-semibold uppercase tracking-wider text-[#f4f4f5]">
+                    Manajemen Storage Output (outputs/)
+                  </h4>
+                  <p className="text-[11px] text-[#a1a1aa]">
+                    Pantau ukuran folder hasil render dan bersihkan folder yatim (orphan) yang tidak lagi terdaftar di PostgreSQL.
+                  </p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    disabled={loadingStorage}
+                    onClick={loadStorageStats}
+                    className="rounded-lg border border-white/10 bg-[#1a1a1f] px-3 py-1.5 text-xs font-medium text-[#f4f4f5] hover:border-white/25 disabled:opacity-50"
+                  >
+                    {loadingStorage ? "Mengecek..." : "Cek Ukuran Storage"}
+                  </button>
+                  {storageStats && storageStats.orphanCount > 0 && (
+                    <button
+                      type="button"
+                      disabled={cleaningStorage}
+                      onClick={handleCleanupOrphans}
+                      className="rounded-lg border border-rose-500/30 bg-rose-500/10 px-3 py-1.5 text-xs font-medium text-rose-300 hover:bg-rose-500/20 disabled:opacity-50"
+                    >
+                      {cleaningStorage
+                        ? "Membersihkan..."
+                        : `Bersihkan ${storageStats.orphanCount} Folder Yatim`}
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {storageStats && (
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-3 text-xs">
+                  <div className="rounded-xl border border-white/5 bg-[#1a1a1f] p-3">
+                    <span className="block text-[#63636b]">Total Pemakaian Disk</span>
+                    <b className="mt-0.5 block font-mono text-[#ddf77b]">
+                      {(storageStats.totalBytes / (1024 * 1024)).toFixed(2)} MB
+                    </b>
+                  </div>
+                  <div className="rounded-xl border border-white/5 bg-[#1a1a1f] p-3">
+                    <span className="block text-[#63636b]">Total Folder Output</span>
+                    <b className="mt-0.5 block font-mono text-[#f4f4f5]">{storageStats.folderCount}</b>
+                  </div>
+                  <div className="rounded-xl border border-white/5 bg-[#1a1a1f] p-3">
+                    <span className="block text-[#63636b]">Folder Yatim (Orphan)</span>
+                    <b className="mt-0.5 block font-mono text-amber-300">
+                      {storageStats.orphanCount} ({(storageStats.orphanBytes / (1024 * 1024)).toFixed(2)} MB)
+                    </b>
+                  </div>
+                </div>
+              )}
+
+              {storageFeedback && (
+                <p className="text-xs text-[#ddf77b]">{storageFeedback}</p>
               )}
             </div>
           </div>

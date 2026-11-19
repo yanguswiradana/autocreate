@@ -20,6 +20,7 @@ import {
   StarterMode,
   VISUAL_PROVIDERS,
   VOICE_OPTIONS,
+  formatFriendlyError,
   readImageFileAsDataUrl,
 } from "@/types/studio";
 import { ArtifactPreviewPanel } from "./ArtifactPreviewPanel";
@@ -2718,7 +2719,7 @@ export function ChatHarnessStudio() {
                           <h3 className="text-sm font-semibold text-[#f4f4f5]">{j.topic}</h3>
                           {j.status === "failed" && j.error_message && (
                             <p className="line-clamp-2 text-xs text-rose-400">
-                              {j.error_message}
+                              {formatFriendlyError(j.error_message)}
                             </p>
                           )}
                         </div>

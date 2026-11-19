@@ -711,6 +711,67 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
+function getDirSizeBytes(dirPath: string): number {
+  if (!fs.existsSync(dirPath)) return 0;
+  let total = 0;
+  for (const entry of fs.readdirSync(dirPath, { withFileTypes: true })) {
+    const full = path.join(dirPath, entry.name);
+    if (entry.isDirectory()) {
+      total += getDirSizeBytes(full);
+    } else if (entry.isFile()) {
+      total += fs.statSync(full).size;
+    }
+  }
+  return total;
+}
+
+  if (req.method === "GET" && urlPath === "/api/storage-stats") {
+    const folders: Array<{ name: string; bytes: number }> = [];
+    if (fs.existsSync(OUTPUTS_DIR)) {
+      for (const entry of fs.readdirSync(OUTPUTS_DIR, { withFileTypes: true })) {
+        if (!entry.isDirectory() || entry.name.startsWith(".") || entry.name === "logs") continue;
+        const dirPath = path.join(OUTPUTS_DIR, entry.name);
+        folders.push({ name: entry.name, bytes: getDirSizeBytes(dirPath) });
+      }
+    }
+    const totalBytes = folders.reduce((acc, f) => acc + f.bytes, 0);
+    return sendJson(res, 200, { totalBytes, folderCount: folders.length, folders });
+  }
+
+  if (req.method === "POST" && urlPath === "/api/storage-cleanup") {
+    let body = "";
+    req.on("data", (chunk) => {
+      body += chunk;
+    });
+    req.on("end", () => {
+      try {
+        const payload = JSON.parse(body || "{}");
+        const keep = new Set<string>(
+          Array.isArray(payload.keepFolders) ? payload.keepFolders.map(String) : []
+        );
+        let removedCount = 0;
+        let freedBytes = 0;
+        if (fs.existsSync(OUTPUTS_DIR)) {
+          for (const entry of fs.readdirSync(OUTPUTS_DIR, { withFileTypes: true })) {
+            if (!entry.isDirectory() || entry.name.startsWith(".") || entry.name === "logs") continue;
+            if (keep.has(entry.name)) continue;
+            const target = resolveOutputPath(entry.name);
+            if (!target) continue;
+            freedBytes += getDirSizeBytes(target);
+            fs.rmSync(target, { recursive: true, force: true });
+            removedCount++;
+          }
+        }
+        return sendJson(res, 200, { ok: true, removedCount, freedBytes });
+      } catch (err) {
+        return sendJson(res, 400, {
+          error: err instanceof Error ? err.message : String(err),
+        });
+      }
+    });
+    return;
+  }
+
   if (req.method === "POST" && urlPath === "/api/rerender") {
     let body = "";
     req.on("data", (chunk) => {

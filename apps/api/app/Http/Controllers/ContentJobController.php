@@ -26,6 +26,39 @@ class ContentJobController extends Controller
         ]);
     }
 
+    public function storage(): JsonResponse
+    {
+        $res = Http::timeout(10)->get("{$this->rendererUrl()}/api/storage-stats");
+        if (!$res->ok()) {
+            return response()->json(['error' => 'Gagal membaca info storage renderer.'], 502);
+        }
+        $data = $res->json();
+        $activeFolders = ContentJob::whereNotNull('folder_name')->pluck('folder_name')->all();
+        $activeSet = array_flip($activeFolders);
+        $folders = $data['folders'] ?? [];
+        $orphans = array_values(array_filter($folders, fn ($f) => !isset($activeSet[$f['name'] ?? ''])));
+        $orphanBytes = array_sum(array_map(fn ($f) => (int) ($f['bytes'] ?? 0), $orphans));
+
+        return response()->json([
+            'totalBytes' => (int) ($data['totalBytes'] ?? 0),
+            'folderCount' => (int) ($data['folderCount'] ?? 0),
+            'orphanCount' => count($orphans),
+            'orphanBytes' => $orphanBytes,
+        ]);
+    }
+
+    public function storageCleanup(): JsonResponse
+    {
+        $keepFolders = ContentJob::whereNotNull('folder_name')->pluck('folder_name')->values()->all();
+        $res = Http::timeout(30)->post("{$this->rendererUrl()}/api/storage-cleanup", [
+            'keepFolders' => $keepFolders,
+        ]);
+        if (!$res->ok()) {
+            return response()->json(['error' => 'Gagal membersihkan folder orphan di renderer.'], 502);
+        }
+        return response()->json($res->json());
+    }
+
     public function index(): JsonResponse
     {
         $jobs = ContentJob::latest()->limit(100)->get();

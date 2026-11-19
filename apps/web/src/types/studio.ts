@@ -383,3 +383,22 @@ export function readImageFileAsDataUrl(file: File): Promise<string> {
     reader.readAsDataURL(file);
   });
 }
+
+export function formatFriendlyError(raw?: string | null): string {
+  const msg = (raw || "").trim();
+  if (!msg) return "Terjadi gangguan saat memproses render. Silakan coba lagi.";
+  const lower = msg.toLowerCase();
+  if (lower.includes("429") || lower.includes("quota") || lower.includes("resource_exhausted") || lower.includes("rate limit")) {
+    return "Kuota atau batas permintaan AI sedang penuh. Coba tunggu sebentar, ganti provider/API key di Setting, atau aktifkan Mock: ON untuk uji layout.";
+  }
+  if (lower.includes("401") || lower.includes("403") || lower.includes("api key") || lower.includes("unauthorized")) {
+    return "API Key AI tidak valid atau belum aktif. Periksa kembali kunci di menu Setting → Provider AI.";
+  }
+  if (lower.includes("econnrefused") || lower.includes("timeout") || lower.includes("502") || lower.includes("504") || lower.includes("fetch failed")) {
+    return "Koneksi ke layanan renderer/eksternal terputus atau timeout. Pastikan container aktif lalu klik Coba Lagi.";
+  }
+  if (lower.includes("extract") || lower.includes("url") || lower.includes("404")) {
+    return "Link referensi gagal diakses atau diblokir situs sumber. Coba salin teks intinya langsung ke chat.";
+  }
+  return msg.length > 180 ? `${msg.slice(0, 177)}...` : msg;
+}

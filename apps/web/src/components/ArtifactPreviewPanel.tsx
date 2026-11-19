@@ -7,6 +7,7 @@ import {
   PRESET_OPTIONS,
   SERIES_OPTIONS,
   VOICE_OPTIONS,
+  formatFriendlyError,
   readImageFileAsDataUrl,
 } from "@/types/studio";
 
@@ -280,7 +281,7 @@ export function ArtifactPreviewPanel({
         {job.status === "failed" && (
           <div className="flex items-center justify-between gap-3 rounded-xl border border-rose-500/30 bg-rose-500/10 p-3 text-xs text-rose-300">
             <span className="min-w-0 break-words">
-              Render gagal: {job.error_message || "Unknown error"}
+              {formatFriendlyError(job.error_message)}
             </span>
             {onRetry && (
               <button

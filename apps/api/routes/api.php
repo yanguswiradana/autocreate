@@ -7,6 +7,8 @@ use App\Http\Controllers\VideoEditController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/health', [ContentJobController::class, 'health']);
+Route::get('/storage', [ContentJobController::class, 'storage']);
+Route::post('/storage/cleanup', [ContentJobController::class, 'storageCleanup']);
 
 Route::get('/jobs', [ContentJobController::class, 'index']);
 Route::post('/jobs', [ContentJobController::class, 'store']);

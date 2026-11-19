@@ -115,6 +115,81 @@ export function SettingsView({
   const [savingBrandkit, setSavingBrandkit] = useState(false);
   const [brandkitFeedback, setBrandkitFeedback] = useState<{ ok: boolean; text: string } | null>(null);
 
+  const handleExportConfig = () => {
+    const payload = {
+      version: 1,
+      exportedAt: new Date().toISOString(),
+      defaults: {
+        preset: draft.preset,
+        series: draft.series,
+        aspectRatio: draft.aspectRatio,
+        language: draft.language,
+        slides: draft.slides,
+        visualProvider: draft.visualProvider,
+        voice: draft.voice,
+        bgm: draft.bgm,
+        bgmVolume: draft.bgmVolume,
+        mock: draft.mock,
+      },
+      brandkit: draft.brandkit,
+    };
+    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `autocreate-config-${new Date().toISOString().slice(0, 10)}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+    setBrandkitFeedback({ ok: true, text: "Config & Brandkit diekspor ke JSON." });
+  };
+
+  const handleImportConfig = async (file: File | undefined) => {
+    if (!file) return;
+    try {
+      const text = await file.text();
+      const parsed = JSON.parse(text);
+      if (!parsed || typeof parsed !== "object") {
+        throw new Error("Format JSON tidak valid.");
+      }
+      onUpdateDraft((prev) => ({
+        ...prev,
+        ...(parsed.defaults && typeof parsed.defaults === "object"
+          ? {
+              preset: parsed.defaults.preset || prev.preset,
+              series: parsed.defaults.series || prev.series,
+              aspectRatio: parsed.defaults.aspectRatio || prev.aspectRatio,
+              language: parsed.defaults.language || prev.language,
+              slides: Number(parsed.defaults.slides) || prev.slides,
+              visualProvider: parsed.defaults.visualProvider || prev.visualProvider,
+              voice: parsed.defaults.voice || prev.voice,
+              bgm: parsed.defaults.bgm || prev.bgm,
+              bgmVolume:
+                typeof parsed.defaults.bgmVolume === "number"
+                  ? parsed.defaults.bgmVolume
+                  : prev.bgmVolume,
+              mock:
+                typeof parsed.defaults.mock === "boolean"
+                  ? parsed.defaults.mock
+                  : prev.mock,
+            }
+          : {}),
+        brandkit:
+          parsed.brandkit && typeof parsed.brandkit === "object"
+            ? { ...DEFAULT_BRANDKIT_CONFIG, ...parsed.brandkit }
+            : prev.brandkit,
+      }));
+      setBrandkitFeedback({
+        ok: true,
+        text: "Config & Brandkit berhasil diimpor! Klik Simpan ke Database jika ingin permanen.",
+      });
+    } catch (e) {
+      setBrandkitFeedback({
+        ok: false,
+        text: e instanceof Error ? e.message : "Gagal membaca file JSON.",
+      });
+    }
+  };
+
   const handleSaveBrandkit = async () => {
     setSavingBrandkit(true);
     setBrandkitFeedback(null);
@@ -1052,6 +1127,25 @@ export function SettingsView({
                       {brandkitFeedback.text}
                     </span>
                   )}
+                  <button
+                    type="button"
+                    onClick={handleExportConfig}
+                    className="rounded-lg border border-white/10 bg-[#1a1a1f] px-3 py-2 text-xs text-[#d4d4d8] hover:border-white/25 hover:text-white"
+                  >
+                    Export JSON
+                  </button>
+                  <label className="cursor-pointer rounded-lg border border-white/10 bg-[#1a1a1f] px-3 py-2 text-xs text-[#d4d4d8] hover:border-white/25 hover:text-white">
+                    Import JSON
+                    <input
+                      type="file"
+                      accept="application/json,.json"
+                      className="hidden"
+                      onChange={(e) => {
+                        handleImportConfig(e.target.files?.[0]);
+                        e.target.value = "";
+                      }}
+                    />
+                  </label>
                   <button
                     type="button"
                     disabled={savingBrandkit}

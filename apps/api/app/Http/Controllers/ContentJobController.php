@@ -211,6 +211,80 @@ class ContentJobController extends Controller
         return response()->json($res->json(), $res->status());
     }
 
+    public function runAutoDiscover(Request $request): JsonResponse
+    {
+        $count = max(1, min(5, (int) $request->input('count', 2)));
+        $mock = $request->boolean('mock', false);
+        $result = self::dispatchAutoDiscoverJobs($count, $mock, 'auto-rss');
+
+        if (isset($result['error'])) {
+            return response()->json(['error' => $result['error']], 502);
+        }
+        return response()->json($result, 202);
+    }
+
+    public static function dispatchAutoDiscoverJobs(int $count = 2, bool $mock = false, string $source = 'auto-rss'): array
+    {
+        $rendererUrl = rtrim(env('RENDERER_URL', 'http://127.0.0.1:4173'), '/');
+        $res = Http::timeout(30)->post("{$rendererUrl}/api/discover", [
+            'count' => $count,
+            'mock' => $mock,
+        ]);
+        if (!$res->ok()) {
+            return ['error' => 'Gagal mengambil RSS dari renderer.'];
+        }
+
+        $topics = $res->json('topics') ?? [];
+        $queued = [];
+        $skipped = 0;
+
+        foreach ($topics as $item) {
+            $topic = trim((string) ($item['topic'] ?? ''));
+            if ($topic === '') continue;
+
+            $existsRecent = ContentJob::where('topic', $topic)
+                ->where('created_at', '>=', now()->subDay())
+                ->exists();
+            if ($existsRecent) {
+                $skipped++;
+                continue;
+            }
+
+            $preset = (string) ($item['preset'] ?? 'noir_editorial');
+            $validPresets = ['noir_editorial', 'midnight_tech', 'monochrome_luxury', 'warm_cinematic', 'neon_cyber', 'clean_paper'];
+            if (!in_array($preset, $validPresets, true)) {
+                $preset = 'noir_editorial';
+            }
+
+            $link = !empty($item['link']) ? [(string) $item['link']] : [];
+            $job = ContentJob::create([
+                'topic' => $topic,
+                'preset' => $preset,
+                'series' => 'fakta_cepat',
+                'aspect_ratio' => '4:5',
+                'language' => 'id',
+                'outputs' => ['carousel', 'poster'],
+                'reference_urls' => $link,
+                'options' => [
+                    'slides' => 5,
+                    'mock' => $mock,
+                    'visualProvider' => 'wikimedia',
+                ],
+                'status' => 'queued',
+                'source' => $source,
+            ]);
+            DispatchRenderJob::dispatch($job->id);
+            $queued[] = $job;
+        }
+
+        return [
+            'ok' => true,
+            'queuedCount' => count($queued),
+            'skippedCount' => $skipped,
+            'jobs' => $queued,
+        ];
+    }
+
     public function retry(int $id): JsonResponse
     {
         $job = ContentJob::findOrFail($id);

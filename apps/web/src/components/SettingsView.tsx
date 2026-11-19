@@ -76,6 +76,30 @@ export function SettingsView({
   const [loadingStorage, setLoadingStorage] = useState(false);
   const [cleaningStorage, setCleaningStorage] = useState(false);
   const [storageFeedback, setStorageFeedback] = useState<string | null>(null);
+  const [rssCount, setRssCount] = useState<number>(2);
+  const [runningRss, setRunningRss] = useState(false);
+  const [rssFeedback, setRssFeedback] = useState<string | null>(null);
+
+  const handleRunAutoDiscover = async () => {
+    setRunningRss(true);
+    setRssFeedback(null);
+    try {
+      const res = await fetch("/api/auto-discover/run", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ count: rssCount, mock: draft.mock }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Gagal menjalankan Auto-Discover RSS");
+      setRssFeedback(
+        `Berhasil: ${data.queuedCount || 0} draft masuk antrean render (${data.skippedCount || 0} topik duplikat dilewati). Cek menu Render/Riwayat.`
+      );
+    } catch (e) {
+      setRssFeedback(e instanceof Error ? e.message : "Gagal Auto-Discover RSS");
+    } finally {
+      setRunningRss(false);
+    }
+  };
 
   const loadStorageStats = useCallback(async () => {
     setLoadingStorage(true);
@@ -1257,6 +1281,43 @@ export function SettingsView({
 
               {storageFeedback && (
                 <p className="text-xs text-[#ddf77b]">{storageFeedback}</p>
+              )}
+            </div>
+
+            <div className="border-t border-white/10 pt-4 space-y-3">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div>
+                  <h4 className="text-xs font-semibold uppercase tracking-wider text-[#f4f4f5]">
+                    Auto-Discover RSS → Render Draft
+                  </h4>
+                  <p className="text-[11px] text-[#a1a1aa]">
+                    Ambil berita terbaru dari <code className="text-[#ddf77b]">feeds.config.json</code> lalu langsung antrekan render Carousel + Poster. Jadwal harian otomatis: <code className="text-[#d4d4d8]">07:00</code> (<code className="text-[#d4d4d8]">app:auto-discover-render</code>).
+                  </p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <select
+                    value={rssCount}
+                    onChange={(e) => setRssCount(Number(e.target.value))}
+                    className="rounded-lg border border-white/10 bg-[#1a1a1f] px-2.5 py-1.5 text-xs text-[#f4f4f5] outline-none"
+                  >
+                    {[1, 2, 3].map((n) => (
+                      <option key={n} value={n}>
+                        {n} topik
+                      </option>
+                    ))}
+                  </select>
+                  <button
+                    type="button"
+                    disabled={runningRss}
+                    onClick={handleRunAutoDiscover}
+                    className="rounded-lg bg-[#ddf77b] px-3 py-1.5 text-xs font-bold text-[#181824] hover:opacity-90 disabled:opacity-50"
+                  >
+                    {runningRss ? "Mengambil RSS..." : "Ambil RSS & Render Draft"}
+                  </button>
+                </div>
+              </div>
+              {rssFeedback && (
+                <p className="text-xs text-[#ddf77b]">{rssFeedback}</p>
               )}
             </div>
           </div>

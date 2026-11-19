@@ -23,6 +23,7 @@ Route::get('/batches/{batchId}', [ContentJobController::class, 'batchStatus']);
 Route::post('/webhooks/render/{id}', [ContentJobController::class, 'webhook']);
 Route::post('/extract-urls', [ContentJobController::class, 'extractUrls']);
 Route::post('/discover', [ContentJobController::class, 'discover']);
+Route::post('/auto-discover/run', [ContentJobController::class, 'runAutoDiscover']);
 Route::post('/chat-intent', [ContentJobController::class, 'chatIntent']);
 
 Route::get('/provider-keys', [ProviderKeyController::class, 'index']);

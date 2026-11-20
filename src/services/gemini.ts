@@ -101,7 +101,7 @@ Aturan ketat:
 3. slideTitle: singkat, punchy, maksimal 7 kata.
 4. slideBody: padat & mudah dibaca di layar HP, maksimal 22 kata.
 5. narrationText: bahasa lisan yang natural untuk voiceover video (1-2 kalimat per scene).
-6. visualPrompt: deskripsi visual dalam Bahasa Inggris untuk latar belakang polos (tanpa teks), wajib selaras dengan gaya: "${theme.visualStyleAnchor}".
+6. visualPrompt: deskripsi subjek foto nyata yang KONKRET dan relevan dengan isi slide dalam Bahasa Inggris (diawali 2-4 kata objek/lokasi nyata seperti "Jakarta city skyline skyscrapers" atau "Indonesian workers office commuters", hindari kata abstrak semata; tanpa teks), selaras dengan gaya: "${theme.visualStyleAnchor}".
 7. durationSeconds: estimasi durasi baca narrationText (antara 3 sampai 6 detik).
 8. Kembalikan HANYA JSON valid sesuai skema berikut tanpa markdown code fence.`;
 

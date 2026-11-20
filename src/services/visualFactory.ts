@@ -77,7 +77,13 @@ export async function generateRawVisuals(
       }
     } else if (provider === "wikimedia") {
       try {
-        await fetchFromWikimedia(scene.visualPrompt, scene.index, outSvgOrPng);
+        await fetchFromWikimedia(
+          scene.visualPrompt,
+          scene.index,
+          outSvgOrPng,
+          blueprint.topic,
+          scene.slideTitle
+        );
         sceneImages[scene.index] = outSvgOrPng;
         continue;
       } catch (err) {
@@ -233,47 +239,32 @@ async function generateWithPollinations(
   fs.writeFileSync(outputPath, buf);
 }
 
-async function fetchFromWikimedia(
-  query: string,
-  sceneIndex: number,
-  outputPath: string
-): Promise<void> {
+function extractVisualKeywords(text: string): string[] {
   const stopWords = new Set([
-    "dark",
-    "moody",
-    "luxury",
-    "minimalist",
-    "subtle",
-    "representing",
-    "focal",
-    "object",
-    "with",
-    "and",
-    "the",
-    "for",
-    "sleek",
-    "calm",
-    "abstract",
+    "dark", "moody", "luxury", "minimalist", "subtle", "representing", "focal",
+    "object", "with", "and", "the", "for", "sleek", "calm", "abstract",
+    "background", "backdrop", "editorial", "cinematic", "lighting", "light",
+    "shadow", "shadows", "style", "aesthetic", "high", "contrast", "clean",
+    "modern", "photo", "photography", "image", "picture", "scene", "view",
+    "close", "shot", "angle", "wide", "warm", "cool", "neon", "vibrant",
+    "dramatic", "soft", "blur", "blurred", "bokeh", "depth", "field",
+    "realistic", "photorealistic", "illustration", "gradient", "texture",
+    "text", "none", "without", "copy", "space", "frame", "gold", "golden",
+    "silver", "black", "white", "blue", "cyan", "navy", "charcoal",
+    "yang", "untuk", "dari", "dengan", "tentang", "dalam", "pada", "akan",
+    "bisa", "agar", "buat", "buatkan", "konten", "berita", "fakta", "tips",
+    "cara", "slide", "carousel", "video", "poster", "terbaru", "tahun",
+    "tembus", "juta", "ribu", "cukupkah", "dorong",
   ]);
-  const words = query
-    .split(",")[0]
+  return text
     .toLowerCase()
-    .replace(/[^a-z\s]/g, " ")
+    .replace(/[^a-z0-9\s]/g, " ")
     .split(/\s+/)
-    .filter((w) => w.length >= 4 && !stopWords.has(w));
+    .filter((w) => w.length >= 3 && !/^\d+$/.test(w) && !stopWords.has(w));
+}
 
-  const fallbackTopics = [
-    "architecture",
-    "workspace",
-    "library",
-    "night city",
-    "mountain twilight",
-  ];
-  const shortQuery =
-    words.slice(0, 2).join(" ") ||
-    fallbackTopics[(sceneIndex - 1) % fallbackTopics.length];
-
-  const apiUrl = `https://commons.wikimedia.org/w/api.php?action=query&generator=search&gsrnamespace=6&gsrsearch=${encodeURIComponent(shortQuery)}&gsrlimit=8&prop=imageinfo&iiprop=url|mime&iiurlwidth=1080&format=json`;
+async function queryWikimediaCandidates(searchQuery: string): Promise<Array<{ url: string; title: string }>> {
+  const apiUrl = `https://commons.wikimedia.org/w/api.php?action=query&generator=search&gsrnamespace=6&gsrsearch=${encodeURIComponent(searchQuery)}&gsrlimit=12&prop=imageinfo&iiprop=url|mime|size&iiurlwidth=1080&format=json`;
 
   const res = await fetch(apiUrl, {
     headers: { "User-Agent": "AutocreateStudio/0.1 (local-dev)" },
@@ -286,26 +277,87 @@ async function fetchFromWikimedia(
     query?: {
       pages?: Record<
         string,
-        { imageinfo?: Array<{ thumburl?: string; url?: string; mime?: string }> }
+        {
+          title?: string;
+          imageinfo?: Array<{ thumburl?: string; url?: string; mime?: string; width?: number; height?: number }>;
+        }
       >;
     };
   };
 
-  const candidates = Object.values(data.query?.pages ?? {})
-    .map((p) => p.imageinfo?.[0])
-    .filter((info) => info?.mime?.startsWith("image/") && (info.thumburl || info.url));
+  const allowedMimes = new Set(["image/jpeg", "image/png", "image/webp"]);
+  const junkPattern = /\b(icon|logo|diagram|map|chart|flag|coat of arms|seal|signature|18\d\d|19[0-7]\d)\b/i;
+
+  const parsed = Object.values(data.query?.pages ?? [])
+    .map((p) => ({ title: p.title || "", info: p.imageinfo?.[0] }))
+    .filter(
+      (item) =>
+        item.info?.mime &&
+        allowedMimes.has(item.info.mime) &&
+        (item.info.width ?? 800) >= 500 &&
+        (item.info.height ?? 600) >= 350 &&
+        Boolean(item.info.thumburl || item.info.url)
+    );
+
+  const clean = parsed.filter((item) => !junkPattern.test(item.title));
+  const pool = clean.length > 0 ? clean : parsed;
+
+  return pool.map((item) => ({
+    url: (item.info!.thumburl || item.info!.url)!,
+    title: item.title,
+  }));
+}
+
+async function fetchFromWikimedia(
+  query: string,
+  sceneIndex: number,
+  outputPath: string,
+  topic = "",
+  slideTitle = ""
+): Promise<void> {
+  const promptWords = extractVisualKeywords(query);
+  const topicWords = extractVisualKeywords(`${topic} ${slideTitle}`);
+
+  const candidateQueries: string[] = [];
+  if (promptWords.length >= 2) {
+    candidateQueries.push(promptWords.slice(0, 2).join(" "));
+  }
+  if (topicWords.length >= 2) {
+    candidateQueries.push(topicWords.slice(0, 2).join(" "));
+  }
+  if (topicWords.length >= 1 && promptWords.length >= 1 && topicWords[0] !== promptWords[0]) {
+    candidateQueries.push(`${topicWords[0]} ${promptWords[0]}`);
+  }
+  if (topicWords.length >= 1) {
+    candidateQueries.push(topicWords[0]);
+  }
+  if (promptWords.length >= 1) {
+    candidateQueries.push(promptWords[0]);
+  }
+  if (candidateQueries.length === 0) {
+    candidateQueries.push("jakarta skyline", "modern office", "city street");
+  }
+
+  let candidates: Array<{ url: string; title: string }> = [];
+  let usedQuery = candidateQueries[0];
+
+  for (const q of Array.from(new Set(candidateQueries))) {
+    const found = await queryWikimediaCandidates(q);
+    if (found.length > 0) {
+      candidates = found;
+      usedQuery = q;
+      break;
+    }
+  }
 
   if (candidates.length === 0) {
-    throw new Error("Tidak ada gambar ditemukan di Wikimedia.");
+    throw new Error("Tidak ada gambar relevan ditemukan di Wikimedia.");
   }
 
   const chosen = candidates[(sceneIndex - 1) % candidates.length];
-  const imgUrl = chosen?.thumburl || chosen?.url;
-  if (!imgUrl) {
-    throw new Error("URL gambar Wikimedia kosong.");
-  }
+  console.log(`[VisualFactory] Wikimedia scene ${sceneIndex} query="${usedQuery}" -> ${chosen.title}`);
 
-  const imgRes = await fetch(imgUrl, {
+  const imgRes = await fetch(chosen.url, {
     headers: { "User-Agent": "AutocreateStudio/0.1 (local-dev)" },
   });
   if (!imgRes.ok) {

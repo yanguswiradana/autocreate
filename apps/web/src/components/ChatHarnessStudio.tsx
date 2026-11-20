@@ -24,6 +24,7 @@ import {
   readImageFileAsDataUrl,
 } from "@/types/studio";
 import { ArtifactPreviewPanel } from "./ArtifactPreviewPanel";
+import { ConfirmModal } from "./ConfirmModal";
 import { FaqChatbot } from "./FaqChatbot";
 import { SettingsView } from "./SettingsView";
 import { VideoTakeEditor } from "./VideoTakeEditor";
@@ -54,6 +55,13 @@ export function ChatHarnessStudio() {
   const [previewJobId, setPreviewJobId] = useState<number | null>(null);
   const [historySearch, setHistorySearch] = useState("");
   const [historyStatusFilter, setHistoryStatusFilter] = useState<"all" | "completed" | "processing" | "failed">("all");
+  const [confirmAction, setConfirmAction] = useState<{
+    title: string;
+    description: string;
+    confirmLabel: string;
+    onConfirm: () => Promise<void>;
+  } | null>(null);
+  const [confirmBusy, setConfirmBusy] = useState(false);
   const [showAllPresets, setShowAllPresets] = useState(false);
   const [showAllSeries, setShowAllSeries] = useState(false);
   const [templatePreview, setTemplatePreview] = useState<
@@ -886,14 +894,20 @@ export function ChatHarnessStudio() {
     await loadJobs();
   };
 
-  const handleClearFailedJobs = async () => {
+  const handleClearFailedJobs = () => {
     const failed = jobs.filter((j) => j.status === "failed");
     if (failed.length === 0) return;
-    if (!window.confirm(`Hapus semua ${failed.length} job yang gagal?`)) return;
-    await Promise.all(
-      failed.map((j) => fetch(`/api/jobs/${j.id}`, { method: "DELETE" }))
-    );
-    await loadJobs();
+    setConfirmAction({
+      title: `Hapus ${failed.length} Job Gagal?`,
+      description: "Semua riwayat job yang gagal beserta foldernya akan dihapus permanen.",
+      confirmLabel: "Ya, Bersihkan",
+      onConfirm: async () => {
+        await Promise.all(
+          failed.map((j) => fetch(`/api/jobs/${j.id}`, { method: "DELETE" }))
+        );
+        await loadJobs();
+      },
+    });
   };
 
   const handleRetryJob = async (id: number) => {
@@ -2761,11 +2775,14 @@ export function ChatHarnessStudio() {
                           </button>
                           <button
                             type="button"
-                            onClick={() => {
-                              if (window.confirm(`Hapus project #${j.id} "${j.topic}"?`)) {
-                                handleDeleteJob(j.id);
-                              }
-                            }}
+                            onClick={() =>
+                              setConfirmAction({
+                                title: `Hapus Project #${j.id}?`,
+                                description: `Project "${j.topic}" beserta file outputnya akan dihapus permanen.`,
+                                confirmLabel: "Ya, Hapus",
+                                onConfirm: () => handleDeleteJob(j.id),
+                              })
+                            }
                             className="rounded-lg border border-rose-500/30 px-3 py-1.5 text-xs text-rose-400 hover:bg-rose-500/10"
                           >
                             Hapus
@@ -2803,6 +2820,27 @@ export function ChatHarnessStudio() {
           onRetry={handleRetryJob}
         />
       </div>
+
+      <ConfirmModal
+        open={Boolean(confirmAction)}
+        title={confirmAction?.title || ""}
+        description={confirmAction?.description || ""}
+        confirmLabel={confirmAction?.confirmLabel || "Ya, Hapus"}
+        busy={confirmBusy}
+        onCancel={() => {
+          if (!confirmBusy) setConfirmAction(null);
+        }}
+        onConfirm={async () => {
+          if (!confirmAction) return;
+          setConfirmBusy(true);
+          try {
+            await confirmAction.onConfirm();
+            setConfirmAction(null);
+          } finally {
+            setConfirmBusy(false);
+          }
+        }}
+      />
 
       {guideOpen && (
         <div

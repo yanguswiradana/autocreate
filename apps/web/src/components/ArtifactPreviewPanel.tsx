@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { ConfirmModal } from "./ConfirmModal";
 import {
   BGM_OPTIONS,
   ContentJobRecord,
@@ -70,6 +71,7 @@ export function ArtifactPreviewPanel({
   const [loadingBp, setLoadingBp] = useState(false);
   const [bpDraft, setBpDraft] = useState<EditableBlueprint | null>(null);
   const [bpError, setBpError] = useState<string | null>(null);
+  const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
   const [rerenderVoice, setRerenderVoice] = useState<string>("id-ID-ArdiNeural");
   const [rerenderBgm, setRerenderBgm] = useState<string>("ambient_dark");
   const [rerenderBgmVol, setRerenderBgmVol] = useState<number>(0.14);
@@ -230,13 +232,15 @@ export function ArtifactPreviewPanel({
     setStagedImages((prev) => ({ ...prev, [slideNumber]: dataUrl }));
   };
 
-  const handleDeleteClick = async () => {
-    if (!window.confirm(`Hapus project #${job.id} "${job.topic}" beserta file outputnya?`)) {
-      return;
-    }
+  const handleDeleteClick = () => {
+    setConfirmDeleteOpen(true);
+  };
+
+  const handleConfirmDelete = async () => {
     setBusyAction("delete");
     try {
       await onDelete(job.id);
+      setConfirmDeleteOpen(false);
       onClose();
     } finally {
       setBusyAction(null);
@@ -799,6 +803,15 @@ export function ArtifactPreviewPanel({
           </div>
         )}
       </div>
+      <ConfirmModal
+        open={confirmDeleteOpen}
+        title={`Hapus Project #${job.id}?`}
+        description={`Project "${job.topic}" beserta seluruh file hasil rendernya (carousel, poster, video) akan dihapus permanen.`}
+        confirmLabel="Ya, Hapus"
+        busy={busyAction === "delete"}
+        onConfirm={handleConfirmDelete}
+        onCancel={() => setConfirmDeleteOpen(false)}
+      />
     </aside>
   );
 }

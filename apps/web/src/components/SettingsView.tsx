@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { ConfirmModal } from "./ConfirmModal";
 import {
   ASPECT_RATIOS,
   BGM_OPTIONS,
@@ -85,6 +86,7 @@ export function SettingsView({
   } | null>(null);
   const [loadingStorage, setLoadingStorage] = useState(false);
   const [cleaningStorage, setCleaningStorage] = useState(false);
+  const [confirmCleanupOpen, setConfirmCleanupOpen] = useState(false);
   const [storageFeedback, setStorageFeedback] = useState<string | null>(null);
   const [rssCount, setRssCount] = useState<number>(2);
   const [runningRss, setRunningRss] = useState(false);
@@ -206,11 +208,13 @@ export function SettingsView({
     }
   }, []);
 
-  const handleCleanupOrphans = async () => {
+  const handleCleanupOrphans = () => {
     if (!storageStats || storageStats.orphanCount === 0) return;
-    if (!window.confirm(`Hapus ${storageStats.orphanCount} folder output yatim yang tidak terdaftar di database?`)) {
-      return;
-    }
+    setConfirmCleanupOpen(true);
+  };
+
+  const executeCleanupOrphans = async () => {
+    if (!storageStats) return;
     setCleaningStorage(true);
     setStorageFeedback(null);
     try {
@@ -219,6 +223,7 @@ export function SettingsView({
       if (!res.ok) throw new Error(data.error || "Gagal membersihkan folder");
       const mb = ((data.freedBytes || 0) / (1024 * 1024)).toFixed(2);
       setStorageFeedback(`Berhasil menghapus ${data.removedCount || 0} folder (${mb} MB dibebaskan).`);
+      setConfirmCleanupOpen(false);
       await loadStorageStats();
     } catch (e) {
       setStorageFeedback(e instanceof Error ? e.message : "Gagal cleanup storage");
@@ -1549,6 +1554,15 @@ export function SettingsView({
           </div>
         )}
       </div>
+      <ConfirmModal
+        open={confirmCleanupOpen}
+        title="Bersihkan Folder Yatim?"
+        description={`Sebanyak ${storageStats?.orphanCount || 0} folder output yatim (${((storageStats?.orphanBytes || 0) / (1024 * 1024)).toFixed(2)} MB) yang tidak terdaftar di PostgreSQL akan dihapus permanen.`}
+        confirmLabel="Ya, Bersihkan"
+        busy={cleaningStorage}
+        onConfirm={executeCleanupOrphans}
+        onCancel={() => setConfirmCleanupOpen(false)}
+      />
     </section>
   );
 }

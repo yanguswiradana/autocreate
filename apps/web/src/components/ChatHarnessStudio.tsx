@@ -945,11 +945,11 @@ export function ChatHarnessStudio() {
 
       {/* SIDEBAR */}
       <aside
-        className={`fixed inset-y-0 left-0 z-40 flex w-[264px] flex-col gap-1 border-r border-white/5 bg-[#0e0e10] p-4 transition-transform duration-200 md:static md:translate-x-0 ${
+        className={`fixed inset-y-0 left-0 z-40 flex h-full w-[264px] shrink-0 flex-col gap-1 overflow-hidden border-r border-white/5 bg-[#0e0e10] p-3.5 transition-transform duration-200 md:static md:translate-x-0 ${
           mobileNavOpen ? "translate-x-0" : "-translate-x-full"
         }`}
       >
-        <div className="flex items-center gap-2.5 px-2 pb-3.5 pt-0.5">
+        <div className="flex shrink-0 items-center gap-2.5 px-2 pb-2.5 pt-0.5">
           <button
             type="button"
             onClick={() => {
@@ -982,7 +982,7 @@ export function ChatHarnessStudio() {
         <button
           type="button"
           onClick={() => resetChat()}
-          className="flex h-10 items-center justify-center gap-2 rounded-[10px] border border-white/10 bg-[#1a1a1f] text-[13.5px] font-semibold transition hover:border-white/20"
+          className="flex h-9 shrink-0 items-center justify-center gap-2 rounded-[10px] border border-white/10 bg-[#1a1a1f] text-[13px] font-semibold transition hover:border-white/20"
         >
           <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
             <path d="M12 5v14M5 12h14" />
@@ -990,7 +990,7 @@ export function ChatHarnessStudio() {
           Chat baru
         </button>
 
-        <nav className="mt-3 flex flex-col gap-0.5" aria-label="Navigasi utama">
+        <nav className="mt-2 flex shrink-0 flex-col gap-0.5" aria-label="Navigasi utama">
           {(
             [
               {
@@ -1065,7 +1065,7 @@ export function ChatHarnessStudio() {
                   setMobileNavOpen(false);
                 }
               }}
-              className={`flex items-center gap-2.5 rounded-[10px] px-2.5 py-2 text-left text-[13.5px] transition ${
+              className={`flex items-center gap-2.5 rounded-[10px] px-2.5 py-1.5 text-left text-[13px] transition ${
                 (item.id === "chat"
                   ? navView === "chat" && previewJobId === null
                   : navView === item.id)
@@ -1091,10 +1091,10 @@ export function ChatHarnessStudio() {
           ))}
         </nav>
 
-        <p className="mx-2 mb-1.5 mt-3.5 text-[11px] font-semibold uppercase tracking-[0.08em] text-[#63636b]">
+        <p className="mx-2 mb-1 mt-2.5 shrink-0 text-[11px] font-semibold uppercase tracking-[0.08em] text-[#63636b]">
           Terakhir
         </p>
-        <div className="flex flex-1 flex-col gap-0.5 overflow-y-auto pr-1">
+        <div className="flex min-h-0 flex-1 flex-col gap-0.5 overflow-y-auto pr-1">
           {jobs.length === 0 ? (
             <p className="px-2.5 py-2 text-xs text-[#63636b]">Belum ada proyek tersimpan.</p>
           ) : (
@@ -1131,7 +1131,7 @@ export function ChatHarnessStudio() {
           )}
         </div>
 
-        <div className="mt-auto flex flex-col gap-2 pt-2">
+        <div className="mt-auto flex shrink-0 flex-col gap-2 pt-2">
           <div className="rounded-[14px] border border-white/5 bg-[#131316] px-3 py-2.5">
             <div className="flex items-baseline justify-between text-xs text-[#a1a1aa]">
               <span>Database PostgreSQL</span>

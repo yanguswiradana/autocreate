@@ -1227,8 +1227,9 @@ export function ChatHarnessStudio() {
           {navView === "chat" && (
             <>
               {step === "idle" ? (
-                <section className="flex flex-1 flex-col items-center justify-center overflow-y-auto px-6 py-10 text-center">
-                  <div className="mb-5 inline-flex h-[52px] w-[52px] items-center justify-center rounded-[15px] bg-[#ddf77b] text-[20px] font-extrabold text-[#181824]">
+                <section className="flex flex-1 flex-col items-center overflow-y-auto px-6 py-6 text-center">
+                  <div className="my-auto flex w-full flex-col items-center">
+                  <div className="mb-4 inline-flex h-[50px] w-[50px] shrink-0 items-center justify-center rounded-[15px] bg-[#ddf77b] text-[20px] font-extrabold text-[#181824]">
                     AS
                   </div>
                   <h1 className="mb-2 text-[clamp(24px,4vw,34px)] font-bold tracking-[-0.02em]">
@@ -1343,6 +1344,7 @@ export function ChatHarnessStudio() {
                         {presetPrompt}
                       </button>
                     ))}
+                  </div>
                   </div>
                 </section>
               ) : (
